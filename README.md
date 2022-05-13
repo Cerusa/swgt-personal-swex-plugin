@@ -1,0 +1,1 @@
+# swgt-personal-swex-plugin
