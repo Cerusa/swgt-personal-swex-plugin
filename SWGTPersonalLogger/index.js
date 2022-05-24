@@ -19,14 +19,14 @@ module.exports = {
     enabled: true,
     saveToFile: false,
     sendCharacterJSON: true,
-    importMonsters: true,
+    //importMonsters: true,
     uploadBattles: false,
     apiKey: ''
   },
   defaultConfigDetails: {
     saveToFile: { label: 'Save to file as well?' },
     sendCharacterJSON: { label: 'Send Character JSON?' },
-    importMonsters: { label: 'Import monsters?' },
+    //importMonsters: { label: 'Import monsters?' },
     uploadBattles: { label: 'Enable Guild War and Siege Battle Logs?' },
     apiKey: { label: 'SWGT Personal API key (On your SWGT profile page)', type: 'input' } 
 	
@@ -286,8 +286,8 @@ module.exports = {
       }
   
       //If import monsters is false, remove all monsters
-      if (!config.Config.Plugins[pluginName].importMonsters)
-        delete pruned['unit_list'];
+      //if (!config.Config.Plugins[pluginName].importMonsters)
+     //   delete pruned['unit_list'];
 
       pResp = pruned
     }
