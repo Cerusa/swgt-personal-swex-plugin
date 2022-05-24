@@ -27,7 +27,7 @@ module.exports = {
     saveToFile: { label: 'Save to file as well?' },
     sendCharacterJSON: { label: 'Send Character JSON?' },
     importMonsters: { label: 'Import monsters?' },
-    uploadBattles: { label: '3MDC Personal upload defense and counter as you battle?' },
+    uploadBattles: { label: 'Enable Guild War and Siege Battle Logs?' },
     apiKey: { label: 'SWGT Personal API key (On your SWGT profile page)', type: 'input' } 
 	
   },
