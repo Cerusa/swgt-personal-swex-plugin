@@ -3,15 +3,15 @@ const fs = require('fs');
 const path = require('path');
 const pluginName = 'SWGTPersonalLogger';
 const pluginVersion = '2022-05-10_1345';
-const siteURL = 'https://cerusa.swgt.io';
+const siteURL = 'https://beta.swgt.info'; //TODO: Update for personal
 var wizardBattles = [];
 var sendBattles = [];
 var tempDefenseDeckInfo = [];
 var observerDefenseInfo = [];
 var observerAttackerList = [];
+var localAPIkey = '';
 var apiReference = {
 	messageType:'OK',
-	wizard_id:[13435537,3987954],
 	enabledWizards:[]
 };  
 module.exports = {
@@ -19,15 +19,15 @@ module.exports = {
     enabled: true,
     saveToFile: false,
     sendCharacterJSON: true,
-    importMonsters: true,
+    //importMonsters: true,
     uploadBattles: false,
     apiKey: ''
   },
   defaultConfigDetails: {
     saveToFile: { label: 'Save to file as well?' },
     sendCharacterJSON: { label: 'Send Character JSON?' },
-    importMonsters: { label: 'Import monsters?' },
-    uploadBattles: { label: '3MDC Personal upload defense and counter as you battle?' },
+    //importMonsters: { label: 'Import monsters?' },
+    uploadBattles: { label: 'Enable Guild War and Siege Battle Logs?' },
     apiKey: { label: 'SWGT Personal API key (On your SWGT profile page)', type: 'input' } 
 	
   },
@@ -114,8 +114,6 @@ module.exports = {
     for (var commandIndex in listenToSWGTCommands) {
       var command = listenToSWGTCommands[commandIndex];
       proxy.on(command, (req, resp) => {
-		  resp=JSON.parse(JSON.stringify(resp));
-		  req=JSON.parse(JSON.stringify(req));
         this.processRequest(command, proxy, config, req, resp, cacheP);
       });
     }
@@ -124,8 +122,6 @@ module.exports = {
       for (var commandIndex in listenTo3MDCCommands) {
         var command = listenTo3MDCCommands[commandIndex];
         proxy.on(command, (req, resp) => {
-		  resp=JSON.parse(JSON.stringify(resp));
-		  req=JSON.parse(JSON.stringify(req));
           this.process3MDCRequest(command, proxy, config, req, resp, cacheP);
         });
       }
@@ -136,8 +132,6 @@ module.exports = {
       for (var commandIndex in listenToSWGTHistoryCommands) {
         var command = listenToSWGTHistoryCommands[commandIndex];
         proxy.on(command, (req, resp) => {
-		  resp=JSON.parse(JSON.stringify(resp));
-		  req=JSON.parse(JSON.stringify(req));
           this.processSWGTHistoryRequest(command, proxy, config, req, resp, cacheP);
         });
       }
@@ -147,21 +141,35 @@ module.exports = {
 	  this.checkVersion(proxy, config);
 	  this.checkSiteAPI(proxy, config);
   },
-  hasAPISettings(config, proxy) {
-    if (!config.Config.Plugins[pluginName].enabled) return false;
+  hasAPIEnabled(config,proxy){
+	if (!config.Config.Plugins[pluginName].enabled) return false;
 
     if (!config.Config.Plugins[pluginName].apiKey) {
       proxy.log({ type: 'error', source: 'plugin', name: this.pluginName, message: 'Missing API key.' });
       return false;
     }
+	return true;
+  },
+  hasAPISettings(config, proxy) {
+
+	if (localAPIkey != config.Config.Plugins[pluginName].apiKey){
+		this.checkSiteAPI(proxy,config);
+		localAPIkey = config.Config.Plugins[pluginName].apiKey;
+		
+	}
+	if (apiReference.messageType==='OK') {
+			//proxy.log({ type: 'DEBUG', source: 'plugin', name: this.pluginName, message: 'API Key Good' });
+			return true;
+		}
 	if (apiReference.messageType==='Warning') {
-		proxy.log({ type: 'warning', source: 'plugin', name: this.pluginName, message: 'API Key near expiration' });
-	}
-	if (apiReference.messageType==='Error') {
-		proxy.log({ type: 'error', source: 'plugin', name: this.pluginName, message: 'API Key Incorrect or Expired.' });
-      return false;
-	}
-    return true;
+			proxy.log({ type: 'warning', source: 'plugin', name: this.pluginName, message: 'API Key near expiration' });
+			return true;
+		}
+		if (apiReference.messageType==='Error') {
+			proxy.log({ type: 'error', source: 'plugin', name: this.pluginName, message: 'API Key Incorrect or Expired.' });
+		  return false;
+		}
+		return false;
   },
   processRequest(command, proxy, config, req, resp, cacheP) {
     if (!config.Config.Plugins[pluginName].sendCharacterJSON) return;
@@ -191,7 +199,8 @@ module.exports = {
 		'wizard_name'
 	  ];
 	  var guildRequiredElements = [
-		'guild_info'
+		'guild_info',
+		'guild_members'
 	  ];
 	  var guildInfoRequiredElements = [
 		'guild_id',
@@ -226,8 +235,6 @@ module.exports = {
 			if(requiredHubUserLoginElements[i]==="wizard_info"){
 				pruned[requiredHubUserLoginElements[i]] = {};
 				for (var k in wizardInfoRequiredElements) {
-					//proxy.log({type: 'debug',source: 'plugin',name: this.pluginName,
-          //message: `Wizard Info: ${requiredHubUserLoginElements[i]}  for element ${wizardInfoRequiredElements[k]}: ${JSON.parse(JSON.stringify(pResp[requiredHubUserLoginElements[i]][wizardInfoRequiredElements[k]]))}`});
 					pruned[requiredHubUserLoginElements[i]][wizardInfoRequiredElements[k]] = JSON.parse(JSON.stringify(pResp[requiredHubUserLoginElements[i]][wizardInfoRequiredElements[k]]));
 					
 				}
@@ -235,8 +242,12 @@ module.exports = {
 				pruned[requiredHubUserLoginElements[i]] = {};
 				for (var k in guildRequiredElements) {
 					pruned[requiredHubUserLoginElements[i]][guildRequiredElements[k]] = {};
-					for (var j in guildInfoRequiredElements) {
-						pruned[requiredHubUserLoginElements[i]][guildRequiredElements[k]][guildInfoRequiredElements[j]] = JSON.parse(JSON.stringify(pResp[requiredHubUserLoginElements[i]]['guild_info'][guildInfoRequiredElements[j]]));
+					if(guildRequiredElements[k]==="guild_info"){
+						for (var j in guildInfoRequiredElements) {
+							pruned[requiredHubUserLoginElements[i]][guildRequiredElements[k]][guildInfoRequiredElements[j]] = JSON.parse(JSON.stringify(pResp[requiredHubUserLoginElements[i]]['guild_info'][guildInfoRequiredElements[j]]));
+						}
+					}else{
+					pruned[requiredHubUserLoginElements[i]][guildRequiredElements[k]] = JSON.parse(JSON.stringify(pResp[requiredHubUserLoginElements[i]][guildRequiredElements[k]]));	
 					}
 				}
 				
@@ -246,13 +257,9 @@ module.exports = {
 						testElement = {};
 						testElement = JSON.parse(JSON.stringify(pResp[requiredHubUserLoginElements[i]][j]));
 						pElement = {};
-					//proxy.log({type: 'debug',source: 'plugin',name: this.pluginName,
-          //message: `Unit Info: ${requiredHubUserLoginElements[i]}  for element ${j}: ${testElement['unit_master_id']}`});
 					
 					for (var k in unitListRequiredElements) {
 					pElement[unitListRequiredElements[k]]=testElement[unitListRequiredElements[k]];
-						//pruned[requiredHubUserLoginElements[i]][j] = {};
-						//pruned[requiredHubUserLoginElements[i]][j][unitListRequiredElements[k]] = JSON.parse(JSON.stringify(pResp[requiredHubUserLoginElements[i]][j][unitListRequiredElements[k]]));
 					}
 					pruned[requiredHubUserLoginElements[i]].push(pElement);
 				}
@@ -264,8 +271,6 @@ module.exports = {
 						pElement = {};
 					for (var k in decoListRequiredElements) {
 						pElement[decoListRequiredElements[k]]=testElement[decoListRequiredElements[k]];
-
-						//pruned[requiredHubUserLoginElements[i]][j][decoListRequiredElements[k]] = JSON.parse(JSON.stringify(pResp[requiredHubUserLoginElements[i]][j][decoListRequiredElements[k]]));
 					}
 					pruned[requiredHubUserLoginElements[i]].push(pElement);
 				}
@@ -276,39 +281,23 @@ module.exports = {
 		} catch (error) {
 			proxy.log({type: 'debug',source: 'plugin',name: this.pluginName,
           message: `Error on hub user: ${requiredHubUserLoginElements[i]}  for element ${i}: ${error.message}`});
-			
+			pResp={};
 		}
       }
-      //Move runes/artifact from monsters to inventory (and detach from monster id)
-      /*for (var mon in pruned.unit_list) {
-        for (var rune in pruned.unit_list[mon].runes) {
-          //pruned.unit_list[mon].runes[rune].occupied_id = 0;
-          //pruned.runes.push(pruned.unit_list[mon].runes[rune])
-          //delete pruned.unit_list[mon].runes[rune];
-        }
-        for (var artifact in pruned.unit_list[mon].artifacts) {
-          //pruned.unit_list[mon].artifacts[artifact].occupied_id = 0;
-          //pruned.artifacts.push(pruned.unit_list[mon].artifacts[artifact])
-          //delete pruned.unit_list[mon].artifacts[artifact];
-        }
-      }*/
-	  
+  
       //If import monsters is false, remove all monsters
-      if (!config.Config.Plugins[pluginName].importMonsters)
-        delete pruned['unit_list'];
+      //if (!config.Config.Plugins[pluginName].importMonsters)
+     //   delete pruned['unit_list'];
 
       pResp = pruned
     }
-	//prune each command that needs it based on wizardid location---if log list is empty don't send at all
 	if (pResp['command'] == 'GetGuildWarBattleLogByGuildId') {
 		items = 0;
 		pruned = pResp;
 		for (var i in pruned.battle_log_list_group){
-			//items += pruned.battle_log_list_group[i].battle_log_list.length - 1;
 			for (var k = pruned.battle_log_list_group[i].battle_log_list.length - 1; k >= 0; k--) {
-				if (!apiReference['wizard_id'].includes(pruned.battle_log_list_group[i].battle_log_list[k].wizard_id)) {
+				if (!apiReference['enabledWizards'].includes(pruned.battle_log_list_group[i].battle_log_list[k].wizard_id)) {
 					pruned.battle_log_list_group[i].battle_log_list.splice(k,1);
-					//items--;
 					}
 			}
 			items += pruned.battle_log_list_group[i].battle_log_list.length;
@@ -318,11 +307,9 @@ module.exports = {
 	if (pResp['command'] == 'GetGuildWarBattleLogByWizardId') {
 		items = 0;
 		pruned = pResp;
-			//items += pruned.battle_log_list.length - 1;
 			for (var k = pruned.battle_log_list.length - 1; k >= 0; k--) {
-				if (!apiReference['wizard_id'].includes(pruned.battle_log_list[k].wizard_id)) {
+				if (!apiReference['enabledWizards'].includes(pruned.battle_log_list[k].wizard_id)) {
 					pruned.battle_log_list.splice(k,1);
-					//items--;
 					}
 			}
 			items += pruned.battle_log_list.length;
@@ -334,11 +321,9 @@ module.exports = {
 		items = 0;
 		pruned = pResp;//'log_list' array of sieges into 'battle_log_list' array of battles with 'wizard_id' on each battle--if array is empty don't send packet
 		for (var i in pruned.log_list){
-			//items += pruned.log_list[i].battle_log_list.length - 1;
 			for (var k = pruned.log_list[i].battle_log_list.length - 1; k >= 0; k--) {
-				if (!apiReference['wizard_id'].includes(pruned.log_list[i].battle_log_list[k].wizard_id)) {
+				if (!apiReference['enabledWizards'].includes(pruned.log_list[i].battle_log_list[k].wizard_id)) {
 					pruned.log_list[i].battle_log_list.splice(k,1);
-					//items--;
 					}
 			}
 			items += pruned.log_list[i].battle_log_list.length;
@@ -351,9 +336,8 @@ module.exports = {
 		pruned = pResp;
 			//items += pruned.defense_deck_list.length - 1;
 			for (var k = pruned.defense_deck_list.length - 1; k >= 0; k--) {
-				if (!apiReference['wizard_id'].includes(pruned.defense_deck_list[k].wizard_id)) {
+				if (!apiReference['enabledWizards'].includes(pruned.defense_deck_list[k].wizard_id)) {
 					pruned.defense_deck_list.splice(k,1);
-					//items--;
 					}
 			}
 			items += pruned.defense_deck_list.length;
@@ -366,9 +350,8 @@ module.exports = {
 		pruned = pResp;
 			
 			for (var k = pruned.guildmaze_contribute_info_list.length - 1; k >= 0; k--) {
-				if (!apiReference['wizard_id'].includes(pruned.guildmaze_contribute_info_list[k].wizard_id)) {
+				if (!apiReference['enabledWizards'].includes(pruned.guildmaze_contribute_info_list[k].wizard_id)) {
 					pruned.guildmaze_contribute_info_list.splice(k,1);
-					//items--;
 					}
 			}
 			items += pruned.guildmaze_contribute_info_list.length;
@@ -385,9 +368,8 @@ module.exports = {
 		pruned = pResp;
 			
 			for (var k = pruned.log_list.length - 1; k >= 0; k--) {
-				if (!apiReference['wizard_id'].includes(pruned.log_list[k].wizard_id)) {
+				if (!apiReference['enabledWizards'].includes(pruned.log_list[k].wizard_id)) {
 					pruned.log_list.splice(k,1);
-					//items--;
 					}
 			}
 			items += pruned.log_list.length;
@@ -395,12 +377,11 @@ module.exports = {
 	}
 	
     this.writeToFile(proxy, req, pResp,'SWGT');
-	//this.writeToFile(proxy, req, resp,'SWGTOrig');
 	proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: "Items:" + `${items}` + "-" + `${resp['command']}` });
     if (this.hasCacheMatch(proxy, config, req, pResp, cacheP)) return;
 	if (items <=0){return};
     this.uploadToWebService(proxy, config, req, pResp,'SWGT-ProcessRequest');
-	
+	pResp = {};
 	
   },
   process3MDCRequest(command, proxy, config, req, resp, cacheP) {
@@ -591,7 +572,7 @@ module.exports = {
 				if (j==0){wizardBattles[wizard].sendBattles[k].battleDateTime = resp.tvalue};
 				j--;
 				sendResp = wizardBattles[wizard].sendBattles[k];
-              if (sendResp.defense.units.length == 3 && sendResp.counter.units.length > 0 && sendResp.battleRank >= 4000) {
+              if (sendResp.defense.units.length == 3 && sendResp.counter.units.length > 0 && sendResp.battleRank >= 1000) {
                 //this.writeToFile(proxy, req, sendResp,'3MDCProgress-'+k);
               }
             }
@@ -618,7 +599,7 @@ module.exports = {
               //remove battle from the sendBattlesList
               wizardBattles[wizard].sendBattles.splice(k, 1);
               //if result then add time and win/loss then send to webservice
-              if (sendResp.defense.units.length == 3 && sendResp.counter.units.length > 0 && sendResp.battleRank >= 4000) {
+              if (sendResp.defense.units.length == 3 && sendResp.counter.units.length > 0 && sendResp.battleRank >= 1000) {
                 this.writeToFile(proxy, req, sendResp,'3MDC-'+k);
 				if (this.verifyPacketToSend(proxy,config,req,sendResp)){
 					this.uploadToWebService(proxy, config, req, sendResp,'3MDC');
@@ -650,7 +631,7 @@ module.exports = {
               //remove battle from the sendBattlesList
               wizardBattles[wizard].sendBattles.splice(k, 1);
               //if 3 mons in offense and defense then send to webservice
-              if (sendResp.defense.units.length == 3 && sendResp.counter.units.length > 0 && sendResp.battleRank >= 4000) {
+              if (sendResp.defense.units.length == 3 && sendResp.counter.units.length > 0 && sendResp.battleRank >= 1000) {
                 this.writeToFile(proxy, req, sendResp,'3MDC-'+k);
 				if (this.verifyPacketToSend(proxy,config,req,sendResp)){
 					this.uploadToWebService(proxy, config, req, sendResp,'3MDC');
@@ -913,7 +894,7 @@ module.exports = {
 		} else {
 			proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: "No match cache:  " + action });
 		}
-		for (var k in cachePTimerSettings){
+		 for (var k in cachePTimerSettings){
 			if (cachePTimerSettings[k].command === action) {
 				var currentTime = new Date().getTime();
 				var timeDifference = currentTime - cachePDuration[action];
@@ -923,11 +904,12 @@ module.exports = {
 					return true;
 				}
 			}
-		}
+		} 
     };
 	
     cacheP[action] = respCopy;
 	cachePDuration[action] = new Date().getTime();
+	
     return false;
   },
   hasAPICommandMatch(proxy,config,req,resp){
@@ -937,9 +919,9 @@ module.exports = {
     if (!this.hasAPISettings(config, proxy)) return;
     const { command } = resp;
 	resp.pluginVersion = pluginVersion;
-    var endpoint = "https://cerusa.swgt.io/api/personal/swgt/v1"; //"/api/v1";//"/api/guild/swgt/v1";
+    var endpoint = "https://beta.swgt.info/api/personal/swgt/v1";//TODO: updated URL Endpoint for personal
     if("3MDC" == endpointType) {
-		endpoint = "https://cerusa.swgt.io/api/personal/3mdc/v1"; // /api/3mdc/v1";//"/api/guild/3mdc/v1";
+		endpoint = "https://beta.swgt.info/api/personal/3mdc/v1"; 
 	}
     let options = {
       method: 'post',
@@ -998,16 +980,15 @@ module.exports = {
       }
     });
   },
-  
   checkSiteAPI(proxy, config){
 	  //check site api configuration settings
-	  if (!this.hasAPISettings(config, proxy)) {
+	  if (!this.hasAPIEnabled(config, proxy)) {
 		  //proxy.log({ type: 'error', source: 'plugin', name: this.pluginName, message: `API Settings not yet configured.` });
 		  return;
 	  }
   	resp = {};
 	resp.command = "checkAPIKey";
-    var endpoint = "/api/personal/swgt/v1";  // "/api/personal/swgt/v1" for personal
+    var endpoint = "/api/personal/swgt/v1";  //TODO: Ensure endpoint API correct for Personal
 
 	  let options = {
       method: 'post',
