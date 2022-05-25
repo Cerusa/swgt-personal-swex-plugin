@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const pluginName = 'SWGTPersonalLogger';
 const pluginVersion = '2022-05-10_1345';
-const siteURL = 'https://cerusa.swgt.info'; //TODO: Update for personal
+const siteURL = 'https://beta.swgt.info'; //TODO: Update for personal
 var wizardBattles = [];
 var sendBattles = [];
 var tempDefenseDeckInfo = [];
@@ -919,9 +919,9 @@ module.exports = {
     if (!this.hasAPISettings(config, proxy)) return;
     const { command } = resp;
 	resp.pluginVersion = pluginVersion;
-    var endpoint = "https://cerusa.swgt.info/api/personal/swgt/v1";//TODO: updated URL Endpoint for personal
+    var endpoint = "https://beta.swgt.info/api/personal/swgt/v1";//TODO: updated URL Endpoint for personal
     if("3MDC" == endpointType) {
-		endpoint = "https://cerusa.swgt.info/api/personal/3mdc/v1"; 
+		endpoint = "https://beta.swgt.info/api/personal/3mdc/v1"; 
 	}
     let options = {
       method: 'post',
