@@ -2,8 +2,8 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 const pluginName = 'SWGTPersonalLogger';
-const pluginVersion = '2022-05-30_0805';
-const siteURL = 'https://beta.swgt.info'; //TODO: Update for personal
+const pluginVersion = '2022-05-30_0924';
+const siteURL = 'https://beta.swgt.info'; //TODO: updated URL Endpoint for personal
 var wizardBattles = [];
 var sendBattles = [];
 var tempDefenseDeckInfo = [];
@@ -919,13 +919,13 @@ module.exports = {
     if (!this.hasAPISettings(config, proxy)) return;
     const { command } = resp;
 	resp.pluginVersion = pluginVersion;
-    var endpoint = "https://beta.swgt.info/api/personal/swgt/v1";//TODO: updated URL Endpoint for personal
+    var endpoint = "/api/personal/swgt/v1";
     if("3MDC" == endpointType) {
-		endpoint = "https://beta.swgt.info/api/personal/3mdc/v1"; 
-	}
+		  endpoint = "/api/personal/3mdc/v1"; 
+	  }
     let options = {
       method: 'post',
-      uri: endpoint+'?apiKey=' + config.Config.Plugins[pluginName].apiKey,
+      uri: siteURL+endpoint+'?apiKey=' + config.Config.Plugins[pluginName].apiKey,
       json: true,
       body: resp
     };
@@ -950,10 +950,10 @@ module.exports = {
   },
   checkVersion(proxy){
 	  //check version number
-	  var endpoint = "https://swgt.io/api/v1";
+	  var endpoint = "/api/personal/swgt/v1";
 	  let options = {
       method: 'get',
-      uri: endpoint
+      uri: siteURL+endpoint
     };
 	  request(options, (error, response) => {
       if (error) {
@@ -987,59 +987,59 @@ module.exports = {
 		  return;
 	  }
   	resp = {};
-	resp.command = "checkAPIKey";
-    var endpoint = "/api/personal/swgt/v1";  //TODO: Ensure endpoint API correct for Personal
+	  resp.command = "checkAPIKey";
+    var endpoint = "/api/personal/swgt/v1";
 
 	  let options = {
       method: 'post',
-      uri: siteURL + endpoint+'?apiKey=' + config.Config.Plugins[pluginName].apiKey,
+      uri: siteURL+endpoint+'?apiKey=' + config.Config.Plugins[pluginName].apiKey,
       json: true,
       body: resp
     };
-	proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: `options url: ${options.uri}` });
-    request(options, (error, response) => {
-      if (error) {
-        proxy.log({ type: 'error', source: 'plugin', name: this.pluginName, message: `Failed to connect to ${siteURL}` });
-        return;
-      }
+    proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: `options url: ${options.uri}` });
+      request(options, (error, response) => {
+        if (error) {
+          proxy.log({ type: 'error', source: 'plugin', name: this.pluginName, message: `Failed to connect to ${siteURL}` });
+          return;
+        }
 
-      if (response.statusCode === 200) {
-        proxy.log({ type: 'success', source: 'plugin', name: this.pluginName, message: `Successfully connected to ${siteURL}` });
-		//load local apiCheck here
-		siteAPIResponse = response.body;
-		if ('messageType' in siteAPIResponse) {apiReference.messageType  = siteAPIResponse.messageType};
-		if ('enabledWizards' in siteAPIResponse) {apiReference.enabledWizards = siteAPIResponse.enabledWizards}; 
-		
-		proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: `apiReference: ${apiReference.messageType}` });
-      } else if ( response.statusCode === 401) {
-		  proxy.log({
-          type: 'error',
-          source: 'plugin',
-          name: this.pluginName,
-          message: `Failed to connect to ${siteURL}: Invalid API Key.`
-        });
-	    } else  {
+        if (response.statusCode === 200) {
+          proxy.log({ type: 'success', source: 'plugin', name: this.pluginName, message: `Successfully connected to ${siteURL}` });
+      //load local apiCheck here
+      siteAPIResponse = response.body;
+      if ('messageType' in siteAPIResponse) {apiReference.messageType  = siteAPIResponse.messageType};
+      if ('enabledWizards' in siteAPIResponse) {apiReference.enabledWizards = siteAPIResponse.enabledWizards}; 
+      
+      proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: `apiReference: ${apiReference.messageType}` });
+        } else if ( response.statusCode === 401) {
         proxy.log({
-          type: 'error',
-          source: 'plugin',
-          name: this.pluginName,
-          message: `Failed to connect to ${siteURL}. ${response.body.message}`
-        });
-      }
-    });
-  },
+            type: 'error',
+            source: 'plugin',
+            name: this.pluginName,
+            message: `Failed to connect to ${siteURL}: Invalid API Key.`
+          });
+        } else  {
+          proxy.log({
+            type: 'error',
+            source: 'plugin',
+            name: this.pluginName,
+            message: `Failed to connect to ${siteURL}. ${response.body.message}`
+          });
+        }
+      });
+    },
   
-  writeToFile(proxy, req, resp, prefix) {
-    if (!config.Config.Plugins[pluginName].enabled) return;
-    if (!config.Config.Plugins[pluginName].saveToFile) return;
-    let filename = this.pluginName + '-' + prefix+'-' + resp['command'] + '-' + new Date().getTime() + '.json';
-    let outFile = fs.createWriteStream(path.join(config.Config.App.filesPath, filename), {
-      flags: 'w',
-      autoClose: true
-    });
+    writeToFile(proxy, req, resp, prefix) {
+      if (!config.Config.Plugins[pluginName].enabled) return;
+      if (!config.Config.Plugins[pluginName].saveToFile) return;
+      let filename = this.pluginName + '-' + prefix+'-' + resp['command'] + '-' + new Date().getTime() + '.json';
+      let outFile = fs.createWriteStream(path.join(config.Config.App.filesPath, filename), {
+        flags: 'w',
+        autoClose: true
+      });
 
-    outFile.write(JSON.stringify(resp, true, 2));
-    outFile.end();
-    proxy.log({ type: 'success', source: 'plugin', name: this.pluginName, message: 'Saved data to '.concat(filename) });
-  }
+      outFile.write(JSON.stringify(resp, true, 2));
+      outFile.end();
+      proxy.log({ type: 'success', source: 'plugin', name: this.pluginName, message: 'Saved data to '.concat(filename) });
+    }
 };
