@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 const pluginName = 'SWGTPersonalLogger';
-const pluginVersion = '2022-06-14_1544';
+const pluginVersion = '2022-06-16_1143';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
 var sendBattles = [];
@@ -968,7 +968,7 @@ module.exports = {
 			    message:`Initializing version ${pluginName}_${pluginVersion}. You have the latest version!`});
 		    } else {
 			    proxy.log({type:'warning',source:'plugin',name:this.pluginName,
-			    message:`Initializing version ${pluginName}_${pluginVersion}. There is a new version available on GitHub. Please visit https://github.com/Cerusa/swgt-swex-plugin/releases/latest and download the latest version.`});
+			    message:`Initializing version ${pluginName}_${pluginVersion}. There is a new version available on GitHub. Please visit https://github.com/Cerusa/swgt-personal-swex-plugin/releases and download the latest version.`});
 		    }
       } else {
         proxy.log({
