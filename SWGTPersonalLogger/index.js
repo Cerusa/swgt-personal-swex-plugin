@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 const pluginName = 'SWGTPersonalLogger';
-const pluginVersion = '2022-09-10_1029';
+const pluginVersion = '2022-09-10_1235';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
 var sendBattles = [];
@@ -75,6 +75,7 @@ module.exports = {
       //Server Guild War
       'GetServerGuildWarBattleLogByGuild',
       'GetServerGuildWarMatchLog',
+      'GetServerGuildWarMatchInfo',
       'GetServerGuildWarRanking',
       'GetServerGuildWarBattleLogByWizard',
 
