@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 const pluginName = 'SWGTPersonalLogger';
-const pluginVersion = '2022-09-10_1235';
+const pluginVersion = '2022-09-11_1610';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
 var sendBattles = [];
@@ -954,7 +954,7 @@ module.exports = {
           type: 'error',
           source: 'plugin',
           name: this.pluginName,
-          message: `Upload failed: Server responded with code: ${response.statusCode} = ${response.body.message} for ${command} to ${siteURL}${endpoint}`
+          message: `${command} upload failed: Server responded with code: ${response.statusCode} = ${response.body.message} for ${command} to ${siteURL}${endpoint}`
         });
 
         //Remove from cache if rate limited
