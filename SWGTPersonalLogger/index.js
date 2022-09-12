@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 const pluginName = 'SWGTPersonalLogger';
-const pluginVersion = '2022-09-11_1610';
+const pluginVersion = '2022-09-12_1100';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
 var sendBattles = [];
@@ -381,6 +381,73 @@ module.exports = {
         }
       }
       items += pruned.log_list.length;
+      pResp = pruned;
+    }
+
+    if (pResp['command'] == 'GetServerGuildWarContributeList') {
+      items = 0;
+      pruned = pResp;
+
+      for (var k = pruned.contribute_list.length - 1; k >= 0; k--) {
+        if (!apiReference['enabledWizards'].includes(pruned.contribute_list[k].wizard_id)) {
+          pruned.contribute_list.splice(k, 1);
+        }
+      }
+      items += pruned.contribute_list.length;
+      pResp = pruned;
+    }
+
+    if (pResp['command'] == 'GetServerGuildWarBattleLogByGuild') {
+      items = 0;
+      pruned = pResp;
+      for (var i in pruned.match_log_list){
+        for (var k = pruned.match_log_list[i].battle_log_list.length - 1; k >= 0; k--) {
+          if (!apiReference['enabledWizards'].includes(pruned.match_log_list[i].battle_log_list[k].wizard_id)) {
+            pruned.match_log_list[i].battle_log_list.splice(k,1);
+            }
+        }
+        items += pruned.match_log_list[i].battle_log_list.length;
+      }
+      pResp = pruned;
+    }
+
+    if (pResp['command'] == 'GetServerGuildWarBattleLogByWizard') {
+      items = 0;
+      pruned = pResp;
+        for (var k = pruned.battle_log_list.length - 1; k >= 0; k--) {
+          for (var j = pruned.battle_log_list[k].length - 1; j >= 0; j--) {
+          if (!apiReference['enabledWizards'].includes(pruned.battle_log_list[k][j].wizard_id)) {
+            pruned.battle_log_list[k].splice(j,1);
+            }
+          }
+        }
+        items += pruned.battle_log_list.length;
+    
+      pResp = pruned;
+    }
+
+    if (pResp['command'] == 'getGuildBossContributeList') {
+      items = 0;
+      pruned = pResp;
+
+      for (var k = pruned.clear_score_info.length - 1; k >= 0; k--) {
+        if (!apiReference['enabledWizards'].includes(pruned.clear_score_info[k].wizard_id)) {
+          pruned.clear_score_info.splice(k, 1);
+        }
+      }
+      items += pruned.clear_score_info.length;
+      pResp = pruned;
+    }
+    if (pResp['command'] == 'getGuildBossBattleLogByWizard') {
+      items = 0;
+      pruned = pResp;
+
+      for (var k = pruned.clear_score_info.length - 1; k >= 0; k--) {
+        if (!apiReference['enabledWizards'].includes(pruned.clear_score_info[k].wizard_id)) {
+          pruned.clear_score_info.splice(k, 1);
+        }
+      }
+      items += pruned.clear_score_info.length;
       pResp = pruned;
     }
 
