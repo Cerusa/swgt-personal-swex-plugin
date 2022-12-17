@@ -87,7 +87,13 @@ module.exports = {
       'getGuildBossBattleInfo',
       'getGuildBossBattleLogByWizard',
       'getGuildBossContributeList',
-      'getGuildBossRankingList'
+      'getGuildBossRankingList',
+	  
+	  //Rune Upgrades
+	  'UpgradeRune',
+	  'Amplify_Rune_v2',
+	  'Convert_Rune_v2',
+	  'Confirm_Rune'
     ];
 
     var listenTo3MDCCommands = [
@@ -249,7 +255,7 @@ module.exports = {
         wizardInfo = {}
         wizardFound = false;
         for (var k = wizardBattles.length - 1; k >= 0; k--) {
-          if (wizardBattles[k].wizard_id == req['wizard_id']) {
+          if (wizardBattles[k].wizard_id == resp['wizard_info']['wizard_id']) {
 			for (var mon in resp.unit_list) {
 			  wizardBattles[k].monsterIDMap[resp.unit_list[mon].unit_id] = resp.unit_list[mon].unit_master_id;
 			  wizardBattles[k].sendBattles = [];
@@ -424,7 +430,15 @@ module.exports = {
       items += pruned.log_list.length;
       pResp = pruned;
     }
+	if (resp['command'] == 'UpgradeRune') {
+		const originalLevel = req.upgrade_curr;
+		const newLevel = resp.rune.upgrade_curr;
 
+		if (newLevel <= originalLevel) {
+		  return;
+		}
+	}
+	]
     this.writeToFile(proxy, req, pResp, 'SWGT');
     proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: "Items:" + `${items}` + "-" + `${resp['command']}` });
     if (this.hasCacheMatch(proxy, config, req, pResp, cacheP)) return;
@@ -434,9 +448,6 @@ module.exports = {
 
   },
   process3MDCRequest(command, proxy, config, req, resp, cacheP) {
-    if (!config.Config.Plugins[pluginName].uploadBattles) return false;
-
-    process3MDCRequest(command, proxy, config, req, resp, cacheP) {
     if (!config.Config.Plugins[pluginName].uploadBattles) return false;
 	 
     if (resp['command'] == 'GetServerGuildWarMatchInfo') {
@@ -1021,6 +1032,7 @@ module.exports = {
   },
   uploadToWebService(proxy, config, req, resp, endpointType) {
     if (!this.hasAPISettings(config, proxy)) return;
+	
     const { command } = resp;
     resp.pluginVersion = pluginVersion;
     var endpoint = "/api/personal/swgt/v1";
