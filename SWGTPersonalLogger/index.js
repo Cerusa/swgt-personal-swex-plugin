@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 const pluginName = 'SWGTPersonalLogger';
-const pluginVersion = '2022-12-17_1114';
+const pluginVersion = '2023-01-08_0733';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
 var sendBattles = [];
@@ -78,10 +78,10 @@ module.exports = {
       'GetServerGuildWarMatchInfo',
       'GetServerGuildWarRanking',
       'GetServerGuildWarBattleLogByWizard',
-      //'GetServerGuildWarContributeList',
-      //'GetServerGuildWarDefenseDeckList',
+      'GetServerGuildWarDefenseDeckList',
       //'GetServerGuildWarBaseDeckList',
       //'GetServerGuildWarBaseInfoListForOppView',
+      //'GetServerGuildWarContributeList',
 
       //Monster Subjugation
       'getGuildBossBattleInfo',
@@ -132,7 +132,9 @@ module.exports = {
     for (var commandIndex in listenToSWGTCommands) {
       var command = listenToSWGTCommands[commandIndex];
       proxy.on(command, (req, resp) => {
-        this.processRequest(command, proxy, config, req, resp, cacheP);
+        var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
+        pRespCopy.swgtPersonalPluginVersion = pluginVersion;
+        this.processRequest(command, proxy, config, req, pRespCopy, cacheP);
       });
     }
     //Attach 3MDC events if enabled
@@ -140,7 +142,9 @@ module.exports = {
       for (var commandIndex in listenTo3MDCCommands) {
         var command = listenTo3MDCCommands[commandIndex];
         proxy.on(command, (req, resp) => {
-          this.process3MDCRequest(command, proxy, config, req, resp, cacheP);
+          var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
+          pRespCopy.swgtPersonalPluginVersion = pluginVersion;
+          this.process3MDCRequest(command, proxy, config, req, pRespCopy, cacheP);
         });
       }
     }
@@ -150,7 +154,9 @@ module.exports = {
       for (var commandIndex in listenToSWGTHistoryCommands) {
         var command = listenToSWGTHistoryCommands[commandIndex];
         proxy.on(command, (req, resp) => {
-          this.processSWGTHistoryRequest(command, proxy, config, req, resp, cacheP);
+          var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
+          pRespCopy.swgtPersonalPluginVersion = pluginVersion;
+          this.processSWGTHistoryRequest(command, proxy, config, req, pRespCopy, cacheP);
         });
       }
     }
@@ -192,6 +198,7 @@ module.exports = {
   processRequest(command, proxy, config, req, resp, cacheP) {
     if (!config.Config.Plugins[pluginName].sendCharacterJSON) return;
     if (!this.verifyPacketToSend(proxy, config, req, resp)) return;
+    
     //Clean HubUserLogin resp
     var pResp = {}; //pruned response object to ensure global object not modified for other plugins
     var items = 1; //potential items to purge
@@ -478,6 +485,7 @@ module.exports = {
       items += pruned.clear_score_info.length;
       pResp = pruned;
     }
+
     if (pResp['command'] == 'getGuildBossBattleLogByWizard') {
       items = 0;
       pruned = pResp;
@@ -498,6 +506,74 @@ module.exports = {
       if (newLevel <= originalLevel) {
         return;
       }
+    }
+
+    //Clean GetServerGuildWarDefenseDeckList resp
+    if(resp['command'] == 'GetServerGuildWarDefenseDeckList'){
+      try{
+        for(var root_element_name in resp){
+          console.log(root_element_name);
+          if(root_element_name == "deck_list"){
+            var deck_list = resp[root_element_name];
+            for (var deck_list_index in deck_list) {
+              var deck_list_child_element = deck_list[deck_list_index];
+
+              if (!apiReference['enabledWizards'].includes(deck_list_child_element.wizard_id)) {
+                return; //Not for an enabled wizard
+              }
+              
+              delete deck_list_child_element.total_win_count;
+              delete deck_list_child_element.total_draw_count;
+              delete deck_list_child_element.total_lose_count;
+        
+              delete deck_list_child_element.win_count;
+              delete deck_list_child_element.draw_count;
+              delete deck_list_child_element.lose_count;
+            }
+          }
+          if(root_element_name == "round_unit_list"){
+            var round_unit_list = resp[root_element_name];
+            
+            for(var round_unit_list_index in round_unit_list){
+              var round_unit_list_child_element = round_unit_list[round_unit_list_index];
+              
+              for(var round_unit_list_child_element_index in round_unit_list_child_element){
+                var round_unit_list_child_element_element = round_unit_list_child_element[round_unit_list_child_element_index];
+                
+                delete round_unit_list_child_element_element.unit_info.accuracy;
+                delete round_unit_list_child_element_element.unit_info.artifacts;
+                delete round_unit_list_child_element_element.unit_info.atk;
+                delete round_unit_list_child_element_element.unit_info.attribute;
+                delete round_unit_list_child_element_element.unit_info.awakening_info;
+                delete round_unit_list_child_element_element.unit_info.building_id;
+                delete round_unit_list_child_element_element.unit_info.class;
+                delete round_unit_list_child_element_element.unit_info.con;
+                delete round_unit_list_child_element_element.unit_info.costume_master_id;
+                delete round_unit_list_child_element_element.unit_info.create_time;
+                delete round_unit_list_child_element_element.unit_info.critical_damage;
+                delete round_unit_list_child_element_element.unit_info.critical_rate;
+                delete round_unit_list_child_element_element.unit_info.def;
+                delete round_unit_list_child_element_element.unit_info.exp_gain_rate;
+                delete round_unit_list_child_element_element.unit_info.exp_gained;
+                delete round_unit_list_child_element_element.unit_info.experience;
+                delete round_unit_list_child_element_element.unit_info.homunculus;
+                delete round_unit_list_child_element_element.unit_info.homunculus_name;
+                delete round_unit_list_child_element_element.unit_info.island_id;
+                delete round_unit_list_child_element_element.unit_info.pos_x;
+                delete round_unit_list_child_element_element.unit_info.pos_y;
+                delete round_unit_list_child_element_element.unit_info.resist;
+                delete round_unit_list_child_element_element.unit_info.runes;
+                delete round_unit_list_child_element_element.unit_info.skills;
+                delete round_unit_list_child_element_element.unit_info.source;
+                delete round_unit_list_child_element_element.unit_info.spd;
+                delete round_unit_list_child_element_element.unit_info.trans_items;
+                delete round_unit_list_child_element_element.unit_info.unit_index;
+                delete round_unit_list_child_element_element.unit_info.unit_level;
+              }
+            }
+          }
+        }
+      }catch(e){}
     }
 
     this.writeToFile(proxy, req, pResp, 'SWGT');
@@ -626,6 +702,7 @@ module.exports = {
           battle.wizard_id = resp.wizard_info.wizard_id;
           battle.wizard_name = resp.wizard_info.wizard_name;
           battle.battleKey = resp.battle_key;
+          battle.battleIndex = i;
           battle.battleStartTime = resp.tvalue;
           battle.defense = {}
           battle.counter = {}
