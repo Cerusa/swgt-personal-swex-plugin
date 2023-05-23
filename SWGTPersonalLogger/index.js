@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 const pluginName = 'SWGTPersonalLogger';
-const pluginVersion = '2023-01-08_0733';
+const pluginVersion = '2023-05-13_1511';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
 var sendBattles = [];
@@ -93,7 +93,12 @@ module.exports = {
       'UpgradeRune',
       'AmplifyRune_v2',
       'ConvertRune_v2',
-      'ConfirmRune'
+      'ConfirmRune',
+
+      //Rune markers
+      'AddRuneLock',
+      'updateMarker',
+      'RemoveRuneLock'
     ];
 
     var listenTo3MDCCommands = [
@@ -200,9 +205,9 @@ module.exports = {
     if (!this.verifyPacketToSend(proxy, config, req, resp)) return;
     
     //Clean HubUserLogin resp
-    var pResp = {}; //pruned response object to ensure global object not modified for other plugins
+    var pResp = JSON.parse(JSON.stringify(resp)); //pruned response object to ensure global object not modified for other plugins
+    var pReq = JSON.parse(JSON.stringify(req)); //pruned request object to ensure global object not modified for other plugins
     var items = 1; //potential items to purge
-    pResp = JSON.parse(JSON.stringify(resp));
     if (pResp['command'] == 'HubUserLogin') {
       req.wizard_id = pResp['wizard_info']['wizard_id'];
       if (!this.verifyPacketToSend(proxy, config, req, resp)) return;
@@ -214,6 +219,10 @@ module.exports = {
         'runes',
         'artifacts',
         'deco_list',
+        'markers',
+        'rune_lock_list',
+        'world_arena_rune_equip_list',
+        'world_arena_artifact_equip_list',
         'tvalue',
         'tzone',
         'server_id',
@@ -573,6 +582,18 @@ module.exports = {
             }
           }
         }
+      }catch(e){}
+    }
+    if (pResp['command'] == 'updateMarker') {
+      try{ 
+        //We need wizard_id from the request object to actually use packet
+        pResp.wizard_id = pReq.wizard_id;
+      }catch(e){}
+    }
+    if (pResp['command'] == 'RemoveRuneLock') {
+      try{
+        //We need wizard_id from the request object to actually use packet
+        pResp.wizard_id = pReq.wizard_id;
       }catch(e){}
     }
 
