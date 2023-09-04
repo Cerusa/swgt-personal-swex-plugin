@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 const pluginName = 'SWGTPersonalLogger';
-const pluginVersion = '2023-05-13_1511';
+const pluginVersion = '2023-07-25_1149';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
 var sendBattles = [];
@@ -98,7 +98,14 @@ module.exports = {
       //Rune markers
       'AddRuneLock',
       'updateMarker',
-      'RemoveRuneLock'
+      'RemoveRuneLock',
+
+      //Artifacts
+      'ConfirmArtifactConversion',
+      'ConvertArtifactByCraft',
+      'SellArtifacts',
+      'RepurchaseArtifact',
+      'BattleDungeonResult_V2'
     ];
 
     var listenTo3MDCCommands = [
@@ -203,10 +210,67 @@ module.exports = {
   processRequest(command, proxy, config, req, resp, cacheP) {
     if (!config.Config.Plugins[pluginName].sendCharacterJSON) return;
     if (!this.verifyPacketToSend(proxy, config, req, resp)) return;
-    
-    //Clean HubUserLogin resp
+
+    //Clone for usage
     var pResp = JSON.parse(JSON.stringify(resp)); //pruned response object to ensure global object not modified for other plugins
     var pReq = JSON.parse(JSON.stringify(req)); //pruned request object to ensure global object not modified for other plugins
+
+    //Clean ConvertArtifactByCraft resp
+    if (pResp['command'] == 'ConvertArtifactByCraft') {
+      if ('wizard_info' in pResp) { delete pResp['wizard_info'] };
+      if ('artifact_before' in pResp) { delete pResp['artifact_before'] };
+      if ('artifact_after' in pResp) { delete pResp['artifact_after'] };
+      if ('artifact_craft' in pResp) { delete pResp['artifact_craft'] };
+    }
+
+    //Clean BattleDungeonResult_V2 resp
+    if (pResp['command'] == 'BattleDungeonResult_V2') {
+      var artifactDrop = {};
+
+      if ('clear_time' in pResp) { delete pResp['clear_time'] };
+      if ('unit_list' in pResp) { delete pResp['unit_list'] };
+      if ('reward' in pResp) { delete pResp['reward'] };
+
+      if ('changed_item_list' in pResp) {
+        var changed_item_list_size = pResp.changed_item_list.length;
+        for (var adIndex = 0; adIndex < changed_item_list_size; adIndex++) {
+          itemDrop = pResp.changed_item_list[adIndex];
+          if ('view' in itemDrop && 'artifact_type' in itemDrop.view && (itemDrop.view.artifact_type * 1) > 0 && 'info' in itemDrop) {
+            //Build custom packet to send to SWGT
+            artifactDrop.command = "CustomDungeonArtifactDrop";
+
+            artifactDrop.artifact = itemDrop.info;
+
+            if ('ts_val' in pResp)
+              artifactDrop.ts_val = pResp.ts_val;
+            if ('tvalue' in pResp)
+              artifactDrop.tvalue = pResp.tvalue;
+            if ('tvaluelocal' in pResp)
+              artifactDrop.tvaluelocal = pResp.tvaluelocal;
+            if ('tzone' in pResp)
+              artifactDrop.tzone = pResp.tzone;
+            if ('reqid' in pResp)
+              artifactDrop.reqid = pResp.reqid;
+            if ('server_id' in pResp)
+              artifactDrop.server_id = pResp.server_id;
+            if ('server_endpoint' in pResp)
+              artifactDrop.server_endpoint = pResp.server_endpoint;
+            if ('swex_version' in pResp)
+              artifactDrop.swex_version = pResp.swex_version;
+
+          }
+        }
+      }
+
+      if('command' in artifactDrop){
+        pResp = artifactDrop; //set pResp for later logging and sending
+      }else{
+        //Skip because there is nothing to send
+        return;
+      }
+    }
+
+    //Clean HubUserLogin resp
     var items = 1; //potential items to purge
     if (pResp['command'] == 'HubUserLogin') {
       req.wizard_id = pResp['wizard_info']['wizard_id'];
