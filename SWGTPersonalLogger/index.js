@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 const pluginName = 'SWGTPersonalLogger';
-const pluginVersion = '2023-07-25_1149';
+const pluginVersion = '2023-09-29_1200';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
 var sendBattles = [];
@@ -283,14 +283,16 @@ module.exports = {
         'runes',
         'artifacts',
         'deco_list',
-        'markers',
-        'rune_lock_list',
-        'world_arena_rune_equip_list',
-        'world_arena_artifact_equip_list',
         'tvalue',
         'tzone',
         'server_id',
-        'server_endpoint'
+        'server_endpoint',
+        'rune_craft_item_list',
+
+        'markers',
+        'rune_lock_list',
+        'world_arena_rune_equip_list',
+        'world_arena_artifact_equip_list'
       ];
       var wizardInfoRequiredElements = [
         'wizard_id',
