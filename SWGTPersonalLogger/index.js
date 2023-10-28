@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 const pluginName = 'SWGTPersonalLogger';
-const pluginVersion = '2023-10-28_0815';
+const pluginVersion = '2023-10-28_1551';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
 var sendBattles = [];
@@ -94,6 +94,7 @@ module.exports = {
 
       //Rune Upgrades
       'UpgradeRune',
+      'upgradeRune_v2',
       'AmplifyRune_v2',
       'ConvertRune_v2',
       'ConfirmRune',
@@ -229,8 +230,7 @@ module.exports = {
 
     //Clean BattleDungeonResult_V2 resp
     if (pResp['command'] == 'BattleDungeonResult_V2') {
-      var runeDrop = {};
-      var artifactDrop = {};
+      var runeOrArtifactDrop = {};
 
       if ('clear_time' in pResp) { delete pResp['clear_time'] };
       if ('unit_list' in pResp) { delete pResp['unit_list'] };
@@ -243,57 +243,57 @@ module.exports = {
 
           if ('view' in itemDrop && 'rune_set_id' in itemDrop.view && (itemDrop.view.rune_set_id * 1) > 0 && 'info' in itemDrop) {
             //Build custom packet to send to SWGT
-            runeDrop.command = "CustomDungeonRuneDrop";
+            runeOrArtifactDrop.command = "CustomDungeonRuneDrop";
 
-            runeDrop.rune = itemDrop.info;
+            runeOrArtifactDrop.rune = itemDrop.info;
 
             if ('ts_val' in pResp)
-              runeDrop.ts_val = pResp.ts_val;
+              runeOrArtifactDrop.ts_val = pResp.ts_val;
             if ('tvalue' in pResp)
-              runeDrop.tvalue = pResp.tvalue;
+              runeOrArtifactDrop.tvalue = pResp.tvalue;
             if ('tvaluelocal' in pResp)
-              runeDrop.tvaluelocal = pResp.tvaluelocal;
+             runeOrArtifactDrop.tvaluelocal = pResp.tvaluelocal;
             if ('tzone' in pResp)
-              runeDrop.tzone = pResp.tzone;
+              runeOrArtifactDrop.tzone = pResp.tzone;
             if ('reqid' in pResp)
-              runeDrop.reqid = pResp.reqid;
+              runeOrArtifactDrop.reqid = pResp.reqid;
             if ('server_id' in pResp)
-              runeDrop.server_id = pResp.server_id;
+              runeOrArtifactDrop.server_id = pResp.server_id;
             if ('server_endpoint' in pResp)
-              runeDrop.server_endpoint = pResp.server_endpoint;
+              runeOrArtifactDrop.server_endpoint = pResp.server_endpoint;
             if ('swex_version' in pResp)
-              runeDrop.swex_version = pResp.swex_version;
+              runeOrArtifactDrop.swex_version = pResp.swex_version;
 
           }
           if ('view' in itemDrop && 'artifact_type' in itemDrop.view && (itemDrop.view.artifact_type * 1) > 0 && 'info' in itemDrop) {
             //Build custom packet to send to SWGT
-            artifactDrop.command = "CustomDungeonArtifactDrop";
+            runeOrArtifactDrop.command = "CustomDungeonArtifactDrop";
 
-            artifactDrop.artifact = itemDrop.info;
+            runeOrArtifactDrop.artifact = itemDrop.info;
 
             if ('ts_val' in pResp)
-              artifactDrop.ts_val = pResp.ts_val;
+              runeOrArtifactDrop.ts_val = pResp.ts_val;
             if ('tvalue' in pResp)
-              artifactDrop.tvalue = pResp.tvalue;
+              runeOrArtifactDrop.tvalue = pResp.tvalue;
             if ('tvaluelocal' in pResp)
-              artifactDrop.tvaluelocal = pResp.tvaluelocal;
+              runeOrArtifactDrop.tvaluelocal = pResp.tvaluelocal;
             if ('tzone' in pResp)
-              artifactDrop.tzone = pResp.tzone;
+              runeOrArtifactDrop.tzone = pResp.tzone;
             if ('reqid' in pResp)
-              artifactDrop.reqid = pResp.reqid;
+              runeOrArtifactDrop.reqid = pResp.reqid;
             if ('server_id' in pResp)
-              artifactDrop.server_id = pResp.server_id;
+              runeOrArtifactDrop.server_id = pResp.server_id;
             if ('server_endpoint' in pResp)
-              artifactDrop.server_endpoint = pResp.server_endpoint;
+              runeOrArtifactDrop.server_endpoint = pResp.server_endpoint;
             if ('swex_version' in pResp)
-              artifactDrop.swex_version = pResp.swex_version;
+              runeOrArtifactDrop.swex_version = pResp.swex_version;
 
           }
         }
       }
 
-      if('command' in artifactDrop){
-        pResp = artifactDrop; //set pResp for later logging and sending
+      if('command' in runeOrArtifactDrop){
+        pResp = runeOrArtifactDrop; //set pResp for later logging and sending
       }else{
         //Skip because there is nothing to send
         return;
