@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 const pluginName = 'SWGTPersonalLogger';
-const pluginVersion = '2023-09-29_1200';
+const pluginVersion = '2023-10-28_0815';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
 var sendBattles = [];
@@ -89,11 +89,16 @@ module.exports = {
       'getGuildBossContributeList',
       'getGuildBossRankingList',
 
+      //Runes and Artifacts
+      'BattleDungeonResult_V2',
+
       //Rune Upgrades
       'UpgradeRune',
       'AmplifyRune_v2',
       'ConvertRune_v2',
       'ConfirmRune',
+      'SellRune',
+      'RepurchaseRune',
 
       //Rune markers
       'AddRuneLock',
@@ -104,8 +109,7 @@ module.exports = {
       'ConfirmArtifactConversion',
       'ConvertArtifactByCraft',
       'SellArtifacts',
-      'RepurchaseArtifact',
-      'BattleDungeonResult_V2'
+      'RepurchaseArtifact'
     ];
 
     var listenTo3MDCCommands = [
@@ -225,6 +229,7 @@ module.exports = {
 
     //Clean BattleDungeonResult_V2 resp
     if (pResp['command'] == 'BattleDungeonResult_V2') {
+      var runeDrop = {};
       var artifactDrop = {};
 
       if ('clear_time' in pResp) { delete pResp['clear_time'] };
@@ -235,6 +240,31 @@ module.exports = {
         var changed_item_list_size = pResp.changed_item_list.length;
         for (var adIndex = 0; adIndex < changed_item_list_size; adIndex++) {
           itemDrop = pResp.changed_item_list[adIndex];
+
+          if ('view' in itemDrop && 'rune_set_id' in itemDrop.view && (itemDrop.view.rune_set_id * 1) > 0 && 'info' in itemDrop) {
+            //Build custom packet to send to SWGT
+            runeDrop.command = "CustomDungeonRuneDrop";
+
+            runeDrop.rune = itemDrop.info;
+
+            if ('ts_val' in pResp)
+              runeDrop.ts_val = pResp.ts_val;
+            if ('tvalue' in pResp)
+              runeDrop.tvalue = pResp.tvalue;
+            if ('tvaluelocal' in pResp)
+              runeDrop.tvaluelocal = pResp.tvaluelocal;
+            if ('tzone' in pResp)
+              runeDrop.tzone = pResp.tzone;
+            if ('reqid' in pResp)
+              runeDrop.reqid = pResp.reqid;
+            if ('server_id' in pResp)
+              runeDrop.server_id = pResp.server_id;
+            if ('server_endpoint' in pResp)
+              runeDrop.server_endpoint = pResp.server_endpoint;
+            if ('swex_version' in pResp)
+              runeDrop.swex_version = pResp.swex_version;
+
+          }
           if ('view' in itemDrop && 'artifact_type' in itemDrop.view && (itemDrop.view.artifact_type * 1) > 0 && 'info' in itemDrop) {
             //Build custom packet to send to SWGT
             artifactDrop.command = "CustomDungeonArtifactDrop";
