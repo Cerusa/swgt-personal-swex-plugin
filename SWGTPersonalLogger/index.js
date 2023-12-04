@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 const pluginName = 'SWGTPersonalLogger';
-const pluginVersion = '2023-10-28_1551';
+const pluginVersion = '2023-12-04_1220';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
 var sendBattles = [];
@@ -68,6 +68,7 @@ module.exports = {
       //Labyrinth
       'GetGuildMazeStatusInfo',
       'GetGuildMazeRankingList',
+      'GetGuildMazeRanking',
       'GetGuildMazeContributeList',
       'GetGuildMazeBattleLogByWizard',
       'GetGuildMazeBattleLogByTile',
@@ -313,6 +314,7 @@ module.exports = {
         'runes',
         'artifacts',
         'deco_list',
+        'wizard_skill_list',
         'tvalue',
         'tzone',
         'server_id',
