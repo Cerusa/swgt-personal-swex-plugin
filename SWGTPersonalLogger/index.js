@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 const pluginName = 'SWGTPersonalLogger';
-const pluginVersion = '2023-12-04_1220';
+const pluginVersion = '2023-12-22_1237';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
 var sendBattles = [];
@@ -1247,6 +1247,7 @@ module.exports = {
     if ('tvalue' in respCopy) { delete respCopy['tvalue'] };
     if ('tvaluelocal' in respCopy) { delete respCopy['tvaluelocal'] };
     if ('reqid' in respCopy) { delete respCopy['reqid'] };
+    if ('date_time_stamp' in respCopy) { delete respCopy['date_time_stamp'] };
 
     if (!(action in cacheP)) {
       proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: "Not in cache:  " + action });
