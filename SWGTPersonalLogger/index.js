@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 const pluginName = 'SWGTPersonalLogger';
-const pluginVersion = '2023-12-22_1237';
+const pluginVersion = '2024-01-13_0740';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
 var sendBattles = [];
@@ -92,6 +92,7 @@ module.exports = {
 
       //Runes and Artifacts
       'BattleDungeonResult_V2',
+      'BattleWorldBossResult_v2',
 
       //Rune Upgrades
       'UpgradeRune',
@@ -229,8 +230,8 @@ module.exports = {
       if ('artifact_craft' in pResp) { delete pResp['artifact_craft'] };
     }
 
-    //Clean BattleDungeonResult_V2 resp
-    if (pResp['command'] == 'BattleDungeonResult_V2') {
+    //Clean BattleDungeonResult_V2 or BattleWorldBossResult_v2 resp
+    if (pResp['command'] == 'BattleDungeonResult_V2' || pResp['command'] == 'BattleWorldBossResult_v2') {
       var runeOrArtifactDrop = {};
 
       if ('clear_time' in pResp) { delete pResp['clear_time'] };
@@ -324,7 +325,8 @@ module.exports = {
         'markers',
         'rune_lock_list',
         'world_arena_rune_equip_list',
-        'world_arena_artifact_equip_list'
+        'world_arena_artifact_equip_list',
+        'unit_storage_normal_list'
       ];
       var wizardInfoRequiredElements = [
         'wizard_id',
