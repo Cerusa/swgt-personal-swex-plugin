@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 const pluginName = 'SWGTPersonalLogger';
-const pluginVersion = '2024-01-13_2052';
+const pluginVersion = '2024-01-18_1852';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
 const siegeGuildRanking = new Map();
@@ -234,7 +234,6 @@ module.exports = {
 
     //Clean BattleDungeonResult_V2 or BattleWorldBossResult_v2 resp
     if (pResp['command'] == 'BattleDungeonResult_V2' || pResp['command'] == 'BattleWorldBossResult_v2') {
-      var runeOrArtifactDrop = {};
 
       if ('clear_time' in pResp) { delete pResp['clear_time'] };
       if ('unit_list' in pResp) { delete pResp['unit_list'] };
@@ -246,9 +245,10 @@ module.exports = {
           itemDrop = pResp.changed_item_list[adIndex];
 
           if ('view' in itemDrop && 'rune_set_id' in itemDrop.view && (itemDrop.view.rune_set_id * 1) > 0 && 'info' in itemDrop) {
+            var runeOrArtifactDrop = {};
             //Build custom packet to send to SWGT
             runeOrArtifactDrop.command = "CustomDungeonRuneDrop";
-
+            runeOrArtifactDrop.wizard_id = itemDrop.info.wizard_id
             runeOrArtifactDrop.rune = itemDrop.info;
 
             if ('ts_val' in pResp)
@@ -267,12 +267,19 @@ module.exports = {
               runeOrArtifactDrop.server_endpoint = pResp.server_endpoint;
             if ('swex_version' in pResp)
               runeOrArtifactDrop.swex_version = pResp.swex_version;
-
+            
+            //Send artifact drop to server
+            this.writeToFile(proxy, req, sendResp, `SWGT-${runeOrArtifactDrop.command}-`);
+            if (this.verifyPacketToSend(proxy, config, req, sendResp)) {
+              this.uploadToWebService(proxy, config, req, sendResp, 'SWGT');
+            }
+            continue;
           }
           if ('view' in itemDrop && 'artifact_type' in itemDrop.view && (itemDrop.view.artifact_type * 1) > 0 && 'info' in itemDrop) {
+            var runeOrArtifactDrop = {};
             //Build custom packet to send to SWGT
             runeOrArtifactDrop.command = "CustomDungeonArtifactDrop";
-
+            runeOrArtifactDrop.wizard_id = itemDrop.info.wizard_id
             runeOrArtifactDrop.artifact = itemDrop.info;
 
             if ('ts_val' in pResp)
@@ -292,16 +299,16 @@ module.exports = {
             if ('swex_version' in pResp)
               runeOrArtifactDrop.swex_version = pResp.swex_version;
 
+            //Send artifact drop to server
+            this.writeToFile(proxy, req, sendResp, `SWGT-${runeOrArtifactDrop.command}-`);
+            if (this.verifyPacketToSend(proxy, config, req, sendResp)) {
+              this.uploadToWebService(proxy, config, req, sendResp, 'SWGT');
+            }
+            continue;
           }
         }
       }
-
-      if('command' in runeOrArtifactDrop){
-        pResp = runeOrArtifactDrop; //set pResp for later logging and sending
-      }else{
-        //Skip because there is nothing to send
-        return;
-      }
+      return;
     }
 
     //Clean HubUserLogin resp
