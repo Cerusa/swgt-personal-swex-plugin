@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 const pluginName = 'SWGTPersonalLogger';
-const pluginVersion = '2024-01-27_0724';
+const pluginVersion = '2024-02-03_1024';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
 const siegeGuildRanking = new Map();
@@ -348,7 +348,8 @@ module.exports = {
         'rune_lock_list',
         'world_arena_rune_equip_list',
         'world_arena_artifact_equip_list',
-        'unit_storage_normal_list'
+        'unit_storage_normal_list',
+        'unit_collection'
       ];
       var wizardInfoRequiredElements = [
         'wizard_id',
