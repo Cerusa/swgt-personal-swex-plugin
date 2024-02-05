@@ -1,8 +1,9 @@
 const request = require('request');
 const fs = require('fs');
 const path = require('path');
+
+const version = '2.0.0';
 const pluginName = 'SWGTPersonalLogger';
-const pluginVersion = '2024-02-03_1024';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
 const siegeGuildRanking = new Map();
@@ -17,6 +18,11 @@ var apiReference = {
   enabledWizards: []
 };
 module.exports = {
+  pluginName,
+  version,
+  autoUpdate: {
+    versionURL: 'https://swgt.io/staticContent/SWGTPersonalLogger.yml'
+  },
   defaultConfig: {
     enabled: true,
     saveToFile: false,
@@ -31,9 +37,7 @@ module.exports = {
     //importMonsters: { label: 'Import monsters?' },
     uploadBattles: { label: 'Enable Guild War and Siege Battle Logs?' },
     apiKey: { label: 'SWGT Personal API key (On your SWGT profile page)', type: 'input' }
-
   },
-  pluginName,
   pluginDescription: 'For SWGT Personal Patreon subscribers to automatically ' +
     'upload various Summoners War data. Enable Character JSON to automatically update ' +
     'your guild\'s members and your player\'s units/runes/artifacts. ' +
@@ -158,7 +162,7 @@ module.exports = {
       var command = listenToSWGTCommands[commandIndex];
       proxy.on(command, (req, resp) => {
         var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
-        pRespCopy.swgtPersonalPluginVersion = pluginVersion;
+        pRespCopy.swgtPersonalPluginVersion = version;
         this.processRequest(command, proxy, config, req, pRespCopy, cacheP);
       });
     }
@@ -168,7 +172,7 @@ module.exports = {
         var command = listenTo3MDCCommands[commandIndex];
         proxy.on(command, (req, resp) => {
           var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
-          pRespCopy.swgtPersonalPluginVersion = pluginVersion;
+          pRespCopy.swgtPersonalPluginVersion = version;
           this.process3MDCRequest(command, proxy, config, req, pRespCopy, cacheP);
         });
       }
@@ -180,7 +184,7 @@ module.exports = {
         var command = listenToSWGTHistoryCommands[commandIndex];
         proxy.on(command, (req, resp) => {
           var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
-          pRespCopy.swgtPersonalPluginVersion = pluginVersion;
+          pRespCopy.swgtPersonalPluginVersion = version;
           this.processSWGTHistoryRequest(command, proxy, config, req, pRespCopy, cacheP);
         });
       }
@@ -1381,7 +1385,7 @@ module.exports = {
   uploadToWebService(proxy, config, req, resp, endpointType) {
     if (!this.hasAPISettings(config, proxy)) return;
     const { command } = resp;
-    resp.pluginVersion = pluginVersion;
+    resp.pluginVersion = version;
     var endpoint = "/api/personal/swgt/v1";
     if ("3MDC" == endpointType) {
       endpoint = "/api/personal/3mdc/v1";
@@ -1434,15 +1438,15 @@ module.exports = {
       //Check current version of SWGT Plugin as listed on site.
       if (response.statusCode === 200) {
         versionResponse = JSON.parse(response.body);
-        if (versionResponse.message == pluginVersion) {
+        if (versionResponse.message == version) {
           proxy.log({
             type: 'success', source: 'plugin', name: this.pluginName,
-            message: `Initializing version ${pluginName}_${pluginVersion}. You have the latest version!`
+            message: `Initializing version ${pluginName}_${version}. You have the latest version!`
           });
         } else {
           proxy.log({
             type: 'warning', source: 'plugin', name: this.pluginName,
-            message: `Initializing version ${pluginName}_${pluginVersion}. There is a new version available on GitHub. Please visit https://github.com/Cerusa/swgt-personal-swex-plugin/releases and download the latest version.`
+            message: `Initializing version ${pluginName}_${version}. There is a new version available on GitHub. Please visit https://github.com/Cerusa/swgt-personal-swex-plugin/releases and download the latest version.`
           });
         }
       } else {
