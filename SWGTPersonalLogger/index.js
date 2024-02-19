@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 
-const version = '2.0.0';
+const version = '2.0.1';
 const pluginName = 'SWGTPersonalLogger';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
@@ -142,7 +142,7 @@ module.exports = {
 
       //WorldGuildBattleTest
       'GetServerGuildWarParticipationInfo',//rating_id
-      'SetServerGuildWarBattleReplayData',
+      'SetServerGuildWarBattleReplayData'
     ];
 
     var listenToSWGTHistoryCommands = [
@@ -344,8 +344,6 @@ module.exports = {
         'wizard_skill_list',
         'tvalue',
         'tzone',
-        'server_id',
-        'server_endpoint',
         'rune_craft_item_list',
 
         'markers',
@@ -992,7 +990,8 @@ module.exports = {
               wizardBattles[wizard].sendBattles[k].win_lose = req['win_lose_list'][jstr];
               wizardBattles[wizard].sendBattles[k].attacker_server_id = resp['attack_info']['server_id'];
               wizardBattles[wizard].sendBattles[k].opp_server_id = resp['target_base_info']['server_id'];
-              wizardBattles[wizard].sendBattles[k].swex_server_id = resp['server_id'];
+              if('server_id' in resp)
+                  wizardBattles[wizard].sendBattles[k].swex_server_id = resp['server_id'];
               if (j == 5) { wizardBattles[wizard].sendBattles[k].battleDateTime = resp.tvalue };
               j--;
               sendResp = wizardBattles[wizard].sendBattles[k];
@@ -1030,7 +1029,8 @@ module.exports = {
             if (wizardBattles[wizard].sendBattles[k].battleKey == req['battle_key']) {
               wizardBattles[wizard].sendBattles[k].win_lose = req['win_lose'];
               wizardBattles[wizard].sendBattles[k].battleDateTime = resp.tvalue - j;
-              wizardBattles[wizard].sendBattles[k].swex_server_id = resp['server_id'];
+              if('server_id' in resp)
+                wizardBattles[wizard].sendBattles[k].swex_server_id = resp['server_id'];
               j++;
               sendResp = wizardBattles[wizard].sendBattles[k];
               //remove battle from the sendBattlesList
@@ -1090,7 +1090,8 @@ module.exports = {
           battle.counter = {}
 
           battle.battleDateTime = resp.tvalue;
-          battle.swex_server_id = resp['server_id'];
+          if('server_id' in resp)
+            battle.swex_server_id = resp['server_id'];
           battle.win_lose = req.battle_info.result_list[0];
 
           //prepare the arrays
@@ -1171,7 +1172,8 @@ module.exports = {
           battle.counter = {}
 
           battle.battleDateTime = resp.tvalue;
-          battle.swex_server_id = resp['server_id'];
+          if('server_id' in resp)
+            battle.swex_server_id = resp['server_id'];
           battle.win_lose = req.battle_info.result_list[0];
 
           //prepare the arrays
