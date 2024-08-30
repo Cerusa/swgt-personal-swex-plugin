@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 
-const version = '2.0.1';
+const version = '2.0.2';
 const pluginName = 'SWGTPersonalLogger';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
@@ -285,7 +285,7 @@ module.exports = {
             if ('swex_version' in pResp)
               runeDrop.swex_version = pResp.swex_version;
             
-            //Send artifact drop to server
+            //Send rune drop to server
             this.writeToFile(proxy, req, runeDrop, `SWGT-${runeDrop.command}-`);
             if (this.verifyPacketToSend(proxy, config, req, runeDrop)) {
               this.uploadToWebService(proxy, config, req, runeDrop, 'SWGT');
@@ -351,7 +351,8 @@ module.exports = {
         'world_arena_rune_equip_list',
         'world_arena_artifact_equip_list',
         'unit_storage_normal_list',
-        'unit_collection'
+        'unit_collection',
+        'unit_marker_list'
       ];
       var wizardInfoRequiredElements = [
         'wizard_id',
