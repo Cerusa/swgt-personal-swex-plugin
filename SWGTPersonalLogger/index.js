@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 
-const version = '2.0.2';
+const version = '2.0.4';
 const pluginName = 'SWGTPersonalLogger';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
@@ -162,7 +162,6 @@ module.exports = {
       var command = listenToSWGTCommands[commandIndex];
       proxy.on(command, (req, resp) => {
         var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
-        pRespCopy.swgtPersonalPluginVersion = version;
         this.processRequest(command, proxy, config, req, pRespCopy, cacheP);
       });
     }
@@ -172,7 +171,6 @@ module.exports = {
         var command = listenTo3MDCCommands[commandIndex];
         proxy.on(command, (req, resp) => {
           var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
-          pRespCopy.swgtPersonalPluginVersion = version;
           this.process3MDCRequest(command, proxy, config, req, pRespCopy, cacheP);
         });
       }
@@ -184,7 +182,6 @@ module.exports = {
         var command = listenToSWGTHistoryCommands[commandIndex];
         proxy.on(command, (req, resp) => {
           var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
-          pRespCopy.swgtPersonalPluginVersion = version;
           this.processSWGTHistoryRequest(command, proxy, config, req, pRespCopy, cacheP);
         });
       }
@@ -328,157 +325,10 @@ module.exports = {
       return;
     }
 
-    //Clean HubUserLogin resp
-    var items = 1; //potential items to purge
+    var items = 1;
     if (pResp['command'] == 'HubUserLogin') {
       req.wizard_id = pResp['wizard_info']['wizard_id'];
       if (!this.verifyPacketToSend(proxy, config, req, resp)) return;
-      var requiredHubUserLoginElements = [
-        'command',
-        'wizard_info',
-        'guild',
-        'unit_list',
-        'runes',
-        'artifacts',
-        'deco_list',
-        'wizard_skill_list',
-        'tvalue',
-        'tzone',
-        'rune_craft_item_list',
-
-        'markers',
-        'rune_lock_list',
-        'world_arena_rune_equip_list',
-        'world_arena_artifact_equip_list',
-        'unit_storage_normal_list',
-        'unit_collection',
-        'unit_marker_list'
-      ];
-      var wizardInfoRequiredElements = [
-        'wizard_id',
-        'wizard_name'
-      ];
-      var guildRequiredElements = [
-        'guild_info',
-        'guild_members'
-      ];
-      var guildInfoRequiredElements = [
-        'guild_id',
-        'name'
-      ];
-      var unitListRequiredElements = [
-        'unit_id',
-        'wizard_id',
-        'unit_master_id',
-        'unit_level',
-        'class',
-        'runes',
-        'artifacts',
-        'create_time',
-        'homunculus',
-        'homunculus_name',
-        'skills'
-      ];
-      var decoListRequiredElements = [
-        'wizard_id',
-        'deco_id',
-        'master_id',
-        'level'
-      ];
-      //Map wizardMonsters to wizard battles for server guild war
-      try {
-        wizardInfo = {}
-        wizardFound = false;
-        for (var k = wizardBattles.length - 1; k >= 0; k--) {
-          if (wizardBattles[k].wizard_id == resp['wizard_info']['wizard_id']) {
-            for (var mon in resp.unit_list) {
-              wizardBattles[k].monsterIDMap[resp.unit_list[mon].unit_id] = resp.unit_list[mon].unit_master_id;
-              wizardBattles[k].sendBattles = [];
-            }
-            wizardFound = true;
-          }
-        }
-        if (!wizardFound) {
-          wizardInfo.wizard_id = resp['wizard_info']['wizard_id'];
-          wizardInfo.monsterIDMap = {};
-          for (var mon in resp.unit_list) {
-            wizardInfo.monsterIDMap[resp.unit_list[mon].unit_id] = resp.unit_list[mon].unit_master_id;
-            wizardInfo.sendBattles = [];
-          }
-          wizardBattles.push(wizardInfo);
-        }
-        //sendResp = wizardBattles;
-        //this.writeToFile(proxy, req, sendResp,'3MDCMonsterMap-');
-        //proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: `Test Map Monsters ${resp['command']}` });
-      } catch (e) {
-        proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: `${resp['command']}-Failed Monster Mapping-${e.message}` });
-      }
-      //Purge all unused variables
-      pruned = {}
-      for (var i in requiredHubUserLoginElements) {
-        //Deep copy so we can modify
-        try {
-
-          if (requiredHubUserLoginElements[i] === "wizard_info") {
-            pruned[requiredHubUserLoginElements[i]] = {};
-            for (var k in wizardInfoRequiredElements) {
-              pruned[requiredHubUserLoginElements[i]][wizardInfoRequiredElements[k]] = JSON.parse(JSON.stringify(pResp[requiredHubUserLoginElements[i]][wizardInfoRequiredElements[k]]));
-
-            }
-          } else if (requiredHubUserLoginElements[i] === "guild") {
-            pruned[requiredHubUserLoginElements[i]] = {};
-            for (var k in guildRequiredElements) {
-              pruned[requiredHubUserLoginElements[i]][guildRequiredElements[k]] = {};
-              if (guildRequiredElements[k] === "guild_info") {
-                for (var j in guildInfoRequiredElements) {
-                  pruned[requiredHubUserLoginElements[i]][guildRequiredElements[k]][guildInfoRequiredElements[j]] = JSON.parse(JSON.stringify(pResp[requiredHubUserLoginElements[i]]['guild_info'][guildInfoRequiredElements[j]]));
-                }
-              } else {
-                pruned[requiredHubUserLoginElements[i]][guildRequiredElements[k]] = JSON.parse(JSON.stringify(pResp[requiredHubUserLoginElements[i]][guildRequiredElements[k]]));
-              }
-            }
-
-          } else if (requiredHubUserLoginElements[i] === "unit_list") {
-            pruned[requiredHubUserLoginElements[i]] = [];
-            for (var j in pResp[requiredHubUserLoginElements[i]]) {
-              testElement = {};
-              testElement = JSON.parse(JSON.stringify(pResp[requiredHubUserLoginElements[i]][j]));
-              pElement = {};
-
-              for (var k in unitListRequiredElements) {
-                pElement[unitListRequiredElements[k]] = testElement[unitListRequiredElements[k]];
-              }
-              pruned[requiredHubUserLoginElements[i]].push(pElement);
-            }
-          } else if (requiredHubUserLoginElements[i] === "deco_list") {
-            pruned[requiredHubUserLoginElements[i]] = [];
-            for (var j in pResp[requiredHubUserLoginElements[i]]) {
-              testElement = {};
-              testElement = JSON.parse(JSON.stringify(pResp[requiredHubUserLoginElements[i]][j]));
-              pElement = {};
-              for (var k in decoListRequiredElements) {
-                pElement[decoListRequiredElements[k]] = testElement[decoListRequiredElements[k]];
-              }
-              pruned[requiredHubUserLoginElements[i]].push(pElement);
-            }
-
-          } else {
-            pruned[requiredHubUserLoginElements[i]] = JSON.parse(JSON.stringify(pResp[requiredHubUserLoginElements[i]]));
-          }
-        } catch (error) {
-          proxy.log({
-            type: 'debug', source: 'plugin', name: this.pluginName,
-            message: `Error on hub user: ${requiredHubUserLoginElements[i]}  for element ${i}: ${error.message}`
-          });
-          pResp = {};
-        }
-      }
-
-      //If import monsters is false, remove all monsters
-      //if (!config.Config.Plugins[pluginName].importMonsters)
-      //   delete pruned['unit_list'];
-
-      pResp = pruned
     }
     if (pResp['command'] == 'GetServerGuildWarBattleLogByGuild') {
       items = 0;
@@ -1512,6 +1362,8 @@ module.exports = {
   },
 
   writeToFile(proxy, req, resp, prefix) {
+    resp.pluginVersion = version;
+
     if (!config.Config.Plugins[pluginName].enabled) return;
     if (!config.Config.Plugins[pluginName].saveToFile) return;
     let filename = this.pluginName + '-' + prefix + '-' + resp['command'] + '-' + new Date().getTime() + '.json';
