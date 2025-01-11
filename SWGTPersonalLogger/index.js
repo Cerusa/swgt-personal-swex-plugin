@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 
-const version = '2.0.5';
+const version = '2.0.6';
 const pluginName = 'SWGTPersonalLogger';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
@@ -15,8 +15,132 @@ var observerAttackerList = [];
 var localAPIkey = '';
 var apiReference = {
      messageType: 'OK',
-     enabledWizards: []
+     enabledWizards: [],
+     isSWGTPersonalSubscriber: false,
+     isSWGTPersonalPlusSubscriber: false
 };
+
+var swgtPersonalListenToSWGTCommands = [
+     //Character JSON and Guild Member List
+     'HubUserLogin',
+
+     //Guild Info
+     'GetGuildInfo',
+     `GetGuildDataAll`,
+
+     //Siege
+     'GetGuildSiegeBattleLogByWizardId',
+     'GetGuildSiegeBattleLog',
+     'GetGuildSiegeMatchupInfo',
+     'GetGuildSiegeMatchupInfoForFinished',
+     'GetGuildSiegeBaseDefenseUnitList',
+     'GetGuildSiegeBaseDefenseUnitListPreset',
+     'GetGuildSiegeRankingInfo',
+
+     //Labyrinth
+     'GetGuildMazeStatusInfo',
+     'GetGuildMazeRankingList',
+     'GetGuildMazeRanking',
+     'GetGuildMazeContributeList',
+     'GetGuildMazeBattleLogByWizard',
+     'GetGuildMazeBattleLogByTile',
+
+     //World Guild Battle (Server Guild War)
+     'GetServerGuildWarBattleLogByGuild',
+     'GetServerGuildWarMatchLog',
+     'GetServerGuildWarMatchInfo',
+     'GetServerGuildWarRanking',
+     'GetServerGuildWarBattleLogByWizard',
+     'GetServerGuildWarDefenseDeckList',
+     'GetServerGuildWarParticipationInfo',//rating_id
+     //'GetServerGuildWarBaseDeckList',
+     //'GetServerGuildWarBaseInfoListForOppView',
+     //'GetServerGuildWarContributeList',
+
+     //Monster Subjugation
+     'getGuildBossBattleInfo',
+     'getGuildBossBattleLogByWizard',
+     'getGuildBossContributeList',
+     'getGuildBossRankingList',
+
+     //Runes and Artifacts
+     'BattleDungeonResult_V2',
+     'BattleWorldBossResult_v2',
+
+     //Rune Upgrades
+     'UpgradeRune',
+     'upgradeRune_v2',
+     'AmplifyRune_v2',
+     'ConvertRune_v2',
+     'ConfirmRune',
+     'SellRune',
+     'RepurchaseRune',
+
+     //Rune markers
+     'AddRuneLock',
+     'updateMarker',
+     'RemoveRuneLock',
+
+     //Artifacts
+     'ConfirmArtifactConversion',
+     'ConvertArtifactByCraft',
+     'SellArtifacts',
+     'RepurchaseArtifact'
+];
+
+var swgtPersonalListenTo3MDCCommands = [
+     //World Guild Battle (Server Guild War)
+     'GetServerGuildWarMatchInfo',
+     'GetServerGuildWarBaseDeckList',
+     'BattleServerGuildWarStart',
+     'BattleServerGuildWarRoundResult',
+     'BattleServerGuildWarResult',
+     'BattleServerGuildWarStartVirtual',
+     'BattleServerGuildWarResultVirtual',
+     //Siege
+     'BattleGuildSiegeStart_v2',//offense and defense mons
+     'BattleGuildSiegeResult',//win/loss
+     'GetGuildSiegeMatchupInfo',//rating_id
+
+     //SiegeTest
+     'GetGuildSiegeRankingInfo',//rating_id
+     'SetGuildSiegeBattleReplayData',//offense, defense and results
+
+     //WorldGuildBattleTest
+     'GetServerGuildWarParticipationInfo',//rating_id
+     'SetServerGuildWarBattleReplayData'
+];
+
+var swgtPersonalListenToSWGTHistoryCommands = [
+     //Siege Defense Units
+     'GetGuildSiegeBaseDefenseUnitList',
+     'GetGuildSiegeBaseDefenseUnitListPreset',
+     'GetGuildSiegeDefenseDeckByWizardId',
+
+     //Defense Log Link
+     'GetGuildSiegeBattleLogByDeckId'
+];
+
+var swgtPersonalPlusCommands = [
+     //Equip Runes/Artifacts all normal
+     'UpdateUnitEquip',
+     'UnequipRune',
+     //Equip Runes/Artifacts RTA
+     'updateRuneEquip',
+     'removeRuneEquip',
+     'UpdateArtifactOccupationContents'
+];
+
+var swgtPersonalRealTimeEquipRemoveRuneAndArtifactCommands = [
+     //Equip Runes/Artifacts all normal
+     'UpdateUnitEquip',
+     'UnequipRune',
+     //Equip Runes/Artifacts RTA
+     'updateRuneEquip',
+     'removeRuneEquip',
+     'UpdateArtifactOccupationContents'
+];
+
 module.exports = {
      pluginName,
      version,
@@ -25,18 +149,19 @@ module.exports = {
      },
      defaultConfig: {
           enabled: true,
-          saveToFile: false,
           sendCharacterJSON: true,
-          //importMonsters: true,
           uploadBattles: false,
+          realTimeEqiupRemoveRuneArtifact: false,
+          saveToFile: false,
           apiKey: ''
      },
      defaultConfigDetails: {
-          saveToFile: { label: 'Save to file as well?' },
           sendCharacterJSON: { label: 'Send Character JSON?' },
           //importMonsters: { label: 'Import monsters?' },
-          uploadBattles: { label: 'Enable Guild War and Siege Battle Logs?' },
-          apiKey: { label: 'SWGT Personal API key (On your SWGT profile page)', type: 'input' }
+          uploadBattles: { label: 'Enable Siege/WGB Battle Logs?' },
+          realTimeEqiupRemoveRuneArtifact: { label: 'Real-time equip/remove runes/artifacts?' },
+          saveToFile: { label: 'Save to file for debugging?' },
+          apiKey: { label: 'SWGT Personal API key (On your SWGT profile page)', type: 'input' },
      },
      pluginDescription: 'For SWGT Personal Patreon subscribers to automatically ' +
           'upload various Summoners War data. Enable Character JSON to automatically update ' +
@@ -54,112 +179,27 @@ module.exports = {
                { command: 'GetGuildMazeStatusInfo', timer: 300000 },
           ];
 
-          var listenToSWGTCommands = [
-               //Character JSON and Guild Member List
-               'HubUserLogin',
-
-               //Guild Info
-               'GetGuildInfo',
-               `GetGuildDataAll`,
-
-               //Siege
-               'GetGuildSiegeBattleLogByWizardId',
-               'GetGuildSiegeBattleLog',
-               'GetGuildSiegeMatchupInfo',
-               'GetGuildSiegeMatchupInfoForFinished',
-               'GetGuildSiegeBaseDefenseUnitList',
-               'GetGuildSiegeBaseDefenseUnitListPreset',
-               'GetGuildSiegeRankingInfo',
-
-               //Labyrinth
-               'GetGuildMazeStatusInfo',
-               'GetGuildMazeRankingList',
-               'GetGuildMazeRanking',
-               'GetGuildMazeContributeList',
-               'GetGuildMazeBattleLogByWizard',
-               'GetGuildMazeBattleLogByTile',
-
-               //World Guild Battle (Server Guild War)
-               'GetServerGuildWarBattleLogByGuild',
-               'GetServerGuildWarMatchLog',
-               'GetServerGuildWarMatchInfo',
-               'GetServerGuildWarRanking',
-               'GetServerGuildWarBattleLogByWizard',
-               'GetServerGuildWarDefenseDeckList',
-               'GetServerGuildWarParticipationInfo',//rating_id
-               //'GetServerGuildWarBaseDeckList',
-               //'GetServerGuildWarBaseInfoListForOppView',
-               //'GetServerGuildWarContributeList',
-
-               //Monster Subjugation
-               'getGuildBossBattleInfo',
-               'getGuildBossBattleLogByWizard',
-               'getGuildBossContributeList',
-               'getGuildBossRankingList',
-
-               //Runes and Artifacts
-               'BattleDungeonResult_V2',
-               'BattleWorldBossResult_v2',
-
-               //Rune Upgrades
-               'UpgradeRune',
-               'upgradeRune_v2',
-               'AmplifyRune_v2',
-               'ConvertRune_v2',
-               'ConfirmRune',
-               'SellRune',
-               'RepurchaseRune',
-
-               //Rune markers
-               'AddRuneLock',
-               'updateMarker',
-               'RemoveRuneLock',
-
-               //Artifacts
-               'ConfirmArtifactConversion',
-               'ConvertArtifactByCraft',
-               'SellArtifacts',
-               'RepurchaseArtifact'
-          ];
-
-          var listenTo3MDCCommands = [
-               //World Guild Battle (Server Guild War)
-               'GetServerGuildWarMatchInfo',
-               'GetServerGuildWarBaseDeckList',
-               'BattleServerGuildWarStart',
-               'BattleServerGuildWarRoundResult',
-               'BattleServerGuildWarResult',
-               'BattleServerGuildWarStartVirtual',
-               'BattleServerGuildWarResultVirtual',
-               //Siege
-               'BattleGuildSiegeStart_v2',//offense and defense mons
-               'BattleGuildSiegeResult',//win/loss
-               'GetGuildSiegeMatchupInfo',//rating_id
-
-               //SiegeTest
-               'GetGuildSiegeRankingInfo',//rating_id
-               'SetGuildSiegeBattleReplayData',//offense, defense and results
-
-               //WorldGuildBattleTest
-               'GetServerGuildWarParticipationInfo',//rating_id
-               'SetServerGuildWarBattleReplayData'
-          ];
-
-          var listenToSWGTHistoryCommands = [
-               //Siege Defense Units
-               'GetGuildSiegeBaseDefenseUnitList',
-               'GetGuildSiegeBaseDefenseUnitListPreset',
-               'GetGuildSiegeDefenseDeckByWizardId',
-
-               //Defense Log Link
-               'GetGuildSiegeBattleLogByDeckId'
-          ];
-
-
-          proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: "Listening to commands: " + listenToSWGTCommands.toString().replace(/,/g, ', ') + '<br><br>' + listenTo3MDCCommands.toString().replace(/,/g, ', ') });
+          proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: 
+               "Listening to commands:<br>" + 
+               swgtPersonalListenToSWGTCommands.toString().replace(/,/g, ', ') + 
+               '<br><br>' + 
+               swgtPersonalListenTo3MDCCommands.toString().replace(/,/g, ', ')  + 
+               '<br><br>' + 
+               swgtPersonalListenToSWGTHistoryCommands.toString().replace(/,/g, ', ')  + 
+               '<br><br>' + 
+               swgtPersonalPlusCommands.toString().replace(/,/g, ', ')
+          });
           //Attach SWGT events
-          for (var commandIndex in listenToSWGTCommands) {
-               var command = listenToSWGTCommands[commandIndex];
+          for (var commandIndex in swgtPersonalListenToSWGTCommands) {
+               var command = swgtPersonalListenToSWGTCommands[commandIndex];
+               proxy.on(command, (req, resp) => {
+                    var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
+                    this.processRequest(command, proxy, config, req, pRespCopy, cacheP);
+               });
+          }
+          
+          for (var commandIndex in swgtPersonalPlusCommands) {
+               var command = swgtPersonalPlusCommands[commandIndex];
                proxy.on(command, (req, resp) => {
                     var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
                     this.processRequest(command, proxy, config, req, pRespCopy, cacheP);
@@ -167,8 +207,8 @@ module.exports = {
           }
           //Attach 3MDC events if enabled
           if (config.Config.Plugins[pluginName].uploadBattles) {
-               for (var commandIndex in listenTo3MDCCommands) {
-                    var command = listenTo3MDCCommands[commandIndex];
+               for (var commandIndex in swgtPersonalListenTo3MDCCommands) {
+                    var command = swgtPersonalListenTo3MDCCommands[commandIndex];
                     proxy.on(command, (req, resp) => {
                          var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
                          this.process3MDCRequest(command, proxy, config, req, pRespCopy, cacheP);
@@ -178,8 +218,8 @@ module.exports = {
 
           //Attach SWGT Siege Log History Data
           if (config.Config.Plugins[pluginName].enabled) {
-               for (var commandIndex in listenToSWGTHistoryCommands) {
-                    var command = listenToSWGTHistoryCommands[commandIndex];
+               for (var commandIndex in swgtPersonalListenToSWGTHistoryCommands) {
+                    var command = swgtPersonalListenToSWGTHistoryCommands[commandIndex];
                     proxy.on(command, (req, resp) => {
                          var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
                          this.processSWGTHistoryRequest(command, proxy, config, req, pRespCopy, cacheP);
@@ -225,6 +265,34 @@ module.exports = {
           if (!config.Config.Plugins[pluginName].sendCharacterJSON) return;
           if (!this.verifyPacketToSend(proxy, config, req, resp)) return;
 
+          var checkCache = true;
+          
+          if(swgtPersonalPlusCommands.includes(req['command'])){
+               if(apiReference['isSWGTPersonalPlusSubscriber'] == false){
+                    //Do Nothing - Not Authorized
+                    proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: 
+                         "Skipping " +req['command']+" because not authorized" 
+                    });
+                    return;
+               }
+               if(swgtPersonalRealTimeEquipRemoveRuneAndArtifactCommands.includes(req['command'])){
+                    if(config.Config.Plugins[pluginName].realTimeEqiupRemoveRuneArtifact){
+                         checkCache = false;
+                    }else{
+                         proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: 
+                              "Skipping " +req['command']+" because real-time update not enabled" 
+                         });
+                         return;
+                    }
+               }
+          }
+
+          if(req['command'] == 'UpdateArtifactOccupationContents'){
+               if('content_type' in req)
+                    resp.content_type = req.content_type;
+               if('wizard_id' in req)
+                    resp.wizard_id = req.wizard_id;
+          }
           if (resp['command'] == 'GetServerGuildWarParticipationInfo') {
                try {
                     worldGuildBattleGuildRanking.set(resp.ranking_info.guild_id, resp.ranking_info.rating_id);
@@ -576,7 +644,9 @@ module.exports = {
 
           this.writeToFile(proxy, req, pResp, 'SWGT');
           proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: "Items:" + `${items}` + "-" + `${resp['command']}` });
-          if (this.hasCacheMatch(proxy, config, req, pResp, cacheP)) return;
+          if(checkCache){
+               if (this.hasCacheMatch(proxy, config, req, pResp, cacheP)) return;
+          }
           if (items <= 0) { return };
           this.uploadToWebService(proxy, config, req, pResp, 'SWGT-ProcessRequest');
           pResp = {};
@@ -1278,6 +1348,25 @@ module.exports = {
                          }
                     } catch (error) { }
                }
+
+               
+               //Update enabled wizards, subscription tiers, etc.
+               try {
+                    if('messageType' in response.body){
+                         siteAPIResponse = response.body;
+                         if ('messageType' in siteAPIResponse) { apiReference.messageType = siteAPIResponse.messageType };
+                         if ('enabledWizards' in siteAPIResponse) { apiReference.enabledWizards = siteAPIResponse.enabledWizards };
+
+                         if ('isSWGTPersonalSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalSubscriber = siteAPIResponse.isSWGTPersonalSubscriber };
+                         if ('isSWGTPersonalPlusSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalPlusSubscriber = siteAPIResponse.isSWGTPersonalPlusSubscriber };
+                         
+                         if ('swgtPersonalSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalSubscriber = siteAPIResponse.swgtPersonalSubscriber };
+                         if ('swgtPersonalPlusSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalPlusSubscriber = siteAPIResponse.swgtPersonalPlusSubscriber };
+                         
+                         if ('swgtpersonalSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalSubscriber = siteAPIResponse.swgtpersonalSubscriber };
+                         if ('swgtpersonalPlusSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalPlusSubscriber = siteAPIResponse.swgtpersonalPlusSubscriber };
+                    }
+               } catch (error) { }
           });
      },
      checkVersion(proxy) {
@@ -1345,6 +1434,15 @@ module.exports = {
                     siteAPIResponse = response.body;
                     if ('messageType' in siteAPIResponse) { apiReference.messageType = siteAPIResponse.messageType };
                     if ('enabledWizards' in siteAPIResponse) { apiReference.enabledWizards = siteAPIResponse.enabledWizards };
+
+                    if ('isSWGTPersonalSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalSubscriber = siteAPIResponse.isSWGTPersonalSubscriber };
+                    if ('isSWGTPersonalPlusSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalPlusSubscriber = siteAPIResponse.isSWGTPersonalPlusSubscriber };
+                    
+                    if ('swgtPersonalSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalSubscriber = siteAPIResponse.swgtPersonalSubscriber };
+                    if ('swgtPersonalPlusSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalPlusSubscriber = siteAPIResponse.swgtPersonalPlusSubscriber };
+                    
+                    if ('swgtpersonalSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalSubscriber = siteAPIResponse.swgtpersonalSubscriber };
+                    if ('swgtpersonalPlusSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalPlusSubscriber = siteAPIResponse.swgtpersonalPlusSubscriber };
 
                     proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: `apiReference: ${apiReference.messageType}` });
                } else if (response.statusCode === 401) {
