@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 
-const version = '2.0.6';
+const version = '2.0.7';
 const pluginName = 'SWGTPersonalLogger';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
@@ -62,6 +62,8 @@ var swgtPersonalListenToSWGTCommands = [
      'getGuildBossBattleLogByWizard',
      'getGuildBossContributeList',
      'getGuildBossRankingList',
+
+     'getUnitStorageList', //Sealed Unit Storage
 
      //Runes and Artifacts
      'BattleDungeonResult_V2',
@@ -287,6 +289,10 @@ module.exports = {
                }
           }
 
+          if(req['command'] == 'getUnitStorageList'){
+               if('wizard_id' in req)
+                    resp.wizard_id = req.wizard_id;
+          }
           if(req['command'] == 'UpdateArtifactOccupationContents'){
                if('content_type' in req)
                     resp.content_type = req.content_type;
@@ -1355,16 +1361,19 @@ module.exports = {
                     if('messageType' in response.body){
                          siteAPIResponse = response.body;
                          if ('messageType' in siteAPIResponse) { apiReference.messageType = siteAPIResponse.messageType };
-                         if ('enabledWizards' in siteAPIResponse) { apiReference.enabledWizards = siteAPIResponse.enabledWizards };
 
-                         if ('isSWGTPersonalSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalSubscriber = siteAPIResponse.isSWGTPersonalSubscriber };
-                         if ('isSWGTPersonalPlusSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalPlusSubscriber = siteAPIResponse.isSWGTPersonalPlusSubscriber };
-                         
-                         if ('swgtPersonalSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalSubscriber = siteAPIResponse.swgtPersonalSubscriber };
-                         if ('swgtPersonalPlusSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalPlusSubscriber = siteAPIResponse.swgtPersonalPlusSubscriber };
-                         
-                         if ('swgtpersonalSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalSubscriber = siteAPIResponse.swgtpersonalSubscriber };
-                         if ('swgtpersonalPlusSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalPlusSubscriber = siteAPIResponse.swgtpersonalPlusSubscriber };
+                         if ('updatePermissions' in siteAPIResponse && siteAPIResponse.updatePermissions) {
+                              if ('enabledWizards' in siteAPIResponse) { apiReference.enabledWizards = siteAPIResponse.enabledWizards };
+
+                              if ('isSWGTPersonalSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalSubscriber = siteAPIResponse.isSWGTPersonalSubscriber };
+                              if ('isSWGTPersonalPlusSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalPlusSubscriber = siteAPIResponse.isSWGTPersonalPlusSubscriber };
+                              
+                              if ('swgtPersonalSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalSubscriber = siteAPIResponse.swgtPersonalSubscriber };
+                              if ('swgtPersonalPlusSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalPlusSubscriber = siteAPIResponse.swgtPersonalPlusSubscriber };
+                              
+                              if ('swgtpersonalSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalSubscriber = siteAPIResponse.swgtpersonalSubscriber };
+                              if ('swgtpersonalPlusSubscriber' in siteAPIResponse) { apiReference.isSWGTPersonalPlusSubscriber = siteAPIResponse.swgtpersonalPlusSubscriber };
+                         }
                     }
                } catch (error) { }
           });
