@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 
-const version = '2.0.7';
+const version = '2.0.8';
 const pluginName = 'SWGTPersonalLogger';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
@@ -77,6 +77,7 @@ var swgtPersonalListenToSWGTCommands = [
      'ConfirmRune',
      'SellRune',
      'RepurchaseRune',
+     'UpgradeRuneList',
 
      //Rune markers
      'AddRuneLock',
@@ -249,6 +250,7 @@ module.exports = {
                localAPIkey = config.Config.Plugins[pluginName].apiKey;
 
           }
+          
           if (apiReference.messageType === 'OK') {
                //proxy.log({ type: 'DEBUG', source: 'plugin', name: this.pluginName, message: 'API Key Good' });
                return true;
@@ -264,36 +266,42 @@ module.exports = {
           return false;
      },
      processRequest(command, proxy, config, req, resp, cacheP) {
-          if (!config.Config.Plugins[pluginName].sendCharacterJSON) return;
-          if (!this.verifyPacketToSend(proxy, config, req, resp)) return;
+          if (!config.Config.Plugins[pluginName].sendCharacterJSON){
+               //proxy.log({ type: 'DEBUG', source: 'plugin', name: this.pluginName, message: 'sendCharacterJSON disabled' });
+               return;
+          }
+          if (!this.verifyPacketToSend(proxy, config, req, resp)){
+               //proxy.log({ type: 'DEBUG', source: 'plugin', name: this.pluginName, message: 'verifyPacketToSend failed' });
+               return;
+          }
 
           var checkCache = true;
           
-          if(swgtPersonalPlusCommands.includes(req['command'])){
+          if(swgtPersonalPlusCommands.includes(resp['command'])){
                if(apiReference['isSWGTPersonalPlusSubscriber'] == false){
                     //Do Nothing - Not Authorized
                     proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: 
-                         "Skipping " +req['command']+" because not authorized" 
+                         "Skipping " +resp['command']+" because not authorized" 
                     });
                     return;
                }
-               if(swgtPersonalRealTimeEquipRemoveRuneAndArtifactCommands.includes(req['command'])){
+               if(swgtPersonalRealTimeEquipRemoveRuneAndArtifactCommands.includes(resp['command'])){
                     if(config.Config.Plugins[pluginName].realTimeEqiupRemoveRuneArtifact){
                          checkCache = false;
                     }else{
                          proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: 
-                              "Skipping " +req['command']+" because real-time update not enabled" 
+                              "Skipping " +resp['command']+" because real-time update not enabled" 
                          });
                          return;
                     }
                }
           }
 
-          if(req['command'] == 'getUnitStorageList'){
+          if(resp['command'] == 'getUnitStorageList'){
                if('wizard_id' in req)
                     resp.wizard_id = req.wizard_id;
           }
-          if(req['command'] == 'UpdateArtifactOccupationContents'){
+          if(resp['command'] == 'UpdateArtifactOccupationContents'){
                if('content_type' in req)
                     resp.content_type = req.content_type;
                if('wizard_id' in req)
@@ -651,9 +659,15 @@ module.exports = {
           this.writeToFile(proxy, req, pResp, 'SWGT');
           proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: "Items:" + `${items}` + "-" + `${resp['command']}` });
           if(checkCache){
-               if (this.hasCacheMatch(proxy, config, req, pResp, cacheP)) return;
+               if (this.hasCacheMatch(proxy, config, req, pResp, cacheP)){
+                    //proxy.log({ type: 'DEBUG', source: 'plugin', name: this.pluginName, message: 'Item in cache, skipping' });
+                    return;
+               }
           }
-          if (items <= 0) { return };
+          if (items <= 0) { 
+               //proxy.log({ type: 'DEBUG', source: 'plugin', name: this.pluginName, message: 'No items to send, skipping' });
+               return 
+          };
           this.uploadToWebService(proxy, config, req, pResp, 'SWGT-ProcessRequest');
           pResp = {};
 
@@ -1314,8 +1328,14 @@ module.exports = {
           //TODO:send api call to site for specific commands to allow for multiple users to not send the same packet every time it is requested
      },
      uploadToWebService(proxy, config, req, resp, endpointType) {
-          if (!config.Config.Plugins[pluginName].enabled) return false;
-          if (!this.hasAPISettings(config, proxy)) return;
+          if (!config.Config.Plugins[pluginName].enabled){
+               //proxy.log({ type: 'DEBUG', source: 'plugin', name: this.pluginName, message: 'Plugin disabled, skipping' });
+               return false;
+          }
+          if (!this.hasAPISettings(config, proxy)){
+               //proxy.log({ type: 'DEBUG', source: 'plugin', name: this.pluginName, message: 'No API settings, skipping' });
+               return;
+          }
 
           const { command } = resp;
           resp.pluginVersion = version;
@@ -1360,7 +1380,7 @@ module.exports = {
                try {
                     if('messageType' in response.body){
                          siteAPIResponse = response.body;
-                         if ('messageType' in siteAPIResponse) { apiReference.messageType = siteAPIResponse.messageType };
+                         //if ('messageType' in siteAPIResponse) { apiReference.messageType = siteAPIResponse.messageType };
 
                          if ('updatePermissions' in siteAPIResponse && siteAPIResponse.updatePermissions) {
                               if ('enabledWizards' in siteAPIResponse) { apiReference.enabledWizards = siteAPIResponse.enabledWizards };
