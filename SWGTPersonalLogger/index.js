@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 
-const version = '2.0.8';
+const version = '2.1.0';
 const pluginName = 'SWGTPersonalLogger';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
@@ -47,7 +47,7 @@ var swgtPersonalListenToSWGTCommands = [
 
      //World Guild Battle (Server Guild War)
      'GetServerGuildWarBattleLogByGuild',
-     'GetServerGuildWarMatchLog',
+     //'GetServerGuildWarMatchLog', //<--Removed because Com2us broke it with special characters
      'GetServerGuildWarMatchInfo',
      'GetServerGuildWarRanking',
      'GetServerGuildWarBattleLogByWizard',
@@ -200,6 +200,15 @@ module.exports = {
                     this.processRequest(command, proxy, config, req, pRespCopy, cacheP);
                });
           }
+          
+          //Handle broken commands
+          proxy.on('apiCommand', (req, resp) => {
+               const { command } = resp;
+               if (command.startsWith('GetServerGuildWarMatc') && command.endsWith('Log')) {
+                    var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
+                    this.processRequest(command, proxy, config, req, pRespCopy, cacheP);
+               }
+          });
           
           for (var commandIndex in swgtPersonalPlusCommands) {
                var command = swgtPersonalPlusCommands[commandIndex];
