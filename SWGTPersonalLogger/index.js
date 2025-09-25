@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 
-const version = '2.1.0';
+const version = '2.2.0';
 const pluginName = 'SWGTPersonalLogger';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
@@ -129,7 +129,7 @@ var swgtPersonalPlusCommands = [
      'UpdateUnitEquip',
      'UnequipRune',
      //Equip Runes/Artifacts RTA
-     'updateRuneEquip',
+     'updateRuneEquip','UpdateRuneEquip',
      'removeRuneEquip',
      'UpdateArtifactOccupationContents'
 ];
@@ -139,7 +139,7 @@ var swgtPersonalRealTimeEquipRemoveRuneAndArtifactCommands = [
      'UpdateUnitEquip',
      'UnequipRune',
      //Equip Runes/Artifacts RTA
-     'updateRuneEquip',
+     'updateRuneEquip','UpdateRuneEquip',
      'removeRuneEquip',
      'UpdateArtifactOccupationContents'
 ];
@@ -174,12 +174,12 @@ module.exports = {
           cacheP = {};
           cachePDuration = {};
           cachePTimerSettings = [
-               { command: 'GetGuildInfo', timer: 60000 },
-               { command: 'GetGuildWarRanking', timer: 300000 },
-               { command: 'GetGuildWarMatchLog', timer: 60000 },
-               { command: 'GetGuildSiegeMatchupInfo', timer: 60000 },
-               { command: 'GetGuildSiegeRankingInfo', timer: 300000 },
-               { command: 'GetGuildMazeStatusInfo', timer: 300000 },
+               { command: 'getguildinfo', timer: 60000 },
+               { command: 'getguildwarranking', timer: 300000 },
+               { command: 'getguildwarmatchlog', timer: 60000 },
+               { command: 'getguildsiegematchupinfo', timer: 60000 },
+               { command: 'getguildsiegerankinginfo', timer: 300000 },
+               { command: 'getguildmazestatusinfo', timer: 300000 },
           ];
 
           proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: 
@@ -192,52 +192,109 @@ module.exports = {
                '<br><br>' + 
                swgtPersonalPlusCommands.toString().replace(/,/g, ', ')
           });
-          //Attach SWGT events
-          for (var commandIndex in swgtPersonalListenToSWGTCommands) {
-               var command = swgtPersonalListenToSWGTCommands[commandIndex];
-               proxy.on(command, (req, resp) => {
-                    var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
-                    this.processRequest(command, proxy, config, req, pRespCopy, cacheP);
-               });
-          }
-          
-          //Handle broken commands
+
+          //Process commands
           proxy.on('apiCommand', (req, resp) => {
-               const { command } = resp;
-               if (command.startsWith('GetServerGuildWarMatc') && command.endsWith('Log')) {
-                    var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
-                    this.processRequest(command, proxy, config, req, pRespCopy, cacheP);
+               let { command } = resp;
+               if(command)
+                    command = command.toLowerCase();
+
+               let howToProcess = "";
+               processCommand:{
+                    if(command){
+                         //Handle broken commands
+                         if (command.startsWith('getserverguildwarmatc') && command.endsWith('log')) {
+                              howToProcess = "SWGT";
+                              break processCommand; //Stop Processing
+                         }
+
+                         //Handle SWGT commands
+                         for (let commandIndex in swgtPersonalListenToSWGTCommands) {
+                              let tempCommand = swgtPersonalListenToSWGTCommands[commandIndex];
+                              if(tempCommand)
+                                   tempCommand = tempCommand.toLowerCase();
+
+                              if(tempCommand == command){
+                                   howToProcess = "SWGT";
+                                   break processCommand; //Stop Processing
+                              }
+                         }
+                         //Handle SWGT Personal+ commands
+                         for (let commandIndex in swgtPersonalPlusCommands) {
+                              let tempCommand = swgtPersonalPlusCommands[commandIndex];
+                              if(tempCommand)
+                                   tempCommand = tempCommand.toLowerCase();
+
+                              if(tempCommand == command){
+                                   howToProcess = "SWGT";
+                                   break processCommand; //Stop Processing
+                              }
+                         }
+                         //Handle 3MDC events if enabled
+                         if (config.Config.Plugins[pluginName].uploadBattles) {
+                               for (let commandIndex in swgtPersonalListenTo3MDCCommands) {
+                                   let tempCommand = swgtPersonalListenTo3MDCCommands[commandIndex];
+                                   if(tempCommand)
+                                        tempCommand = tempCommand.toLowerCase();
+                                   if(tempCommand == command){
+                                        howToProcess = "3MDC";
+                                        break processCommand; //Stop Processing
+                                   }
+                               }
+                         }
+                         //Attach SWGT Siege Log History Data
+                          if (config.Config.Plugins[pluginName].enabled) {
+                              for (let commandIndex in swgtPersonalListenToSWGTHistoryCommands) {
+                                   let tempCommand = swgtPersonalListenToSWGTHistoryCommands[commandIndex];
+                                   if(tempCommand)
+                                        tempCommand = tempCommand.toLowerCase();
+
+                                   if(tempCommand == command){
+                                        howToProcess = "SWGT_HISTORY";
+                                        break processCommand; //Stop Processing
+                                   }
+                              }
+                         }
+                    }
                }
+
+               switch(howToProcess) {
+                    case "SWGT":
+                         this.processRequest(
+                              command, 
+                              proxy, 
+                              config, 
+                              req, 
+                              JSON.parse(JSON.stringify(resp)), //Deep copy
+                              cacheP
+                         );
+                         break;
+                    case "3MDC":
+                         this.process3MDCRequest(
+                              command, 
+                              proxy, 
+                              config, 
+                              req, 
+                              JSON.parse(JSON.stringify(resp)), //Deep copy
+                              cacheP
+                         );
+                         break;
+                    case "SWGT_HISTORY":
+                         var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
+                         this.processSWGTHistoryRequest(
+                              command, 
+                              proxy, 
+                              config, 
+                              req, 
+                              JSON.parse(JSON.stringify(resp)), //Deep copy
+                              cacheP
+                         );
+                         break;
+                    default:
+                         //Do Nothing
+               } 
           });
           
-          for (var commandIndex in swgtPersonalPlusCommands) {
-               var command = swgtPersonalPlusCommands[commandIndex];
-               proxy.on(command, (req, resp) => {
-                    var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
-                    this.processRequest(command, proxy, config, req, pRespCopy, cacheP);
-               });
-          }
-          //Attach 3MDC events if enabled
-          if (config.Config.Plugins[pluginName].uploadBattles) {
-               for (var commandIndex in swgtPersonalListenTo3MDCCommands) {
-                    var command = swgtPersonalListenTo3MDCCommands[commandIndex];
-                    proxy.on(command, (req, resp) => {
-                         var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
-                         this.process3MDCRequest(command, proxy, config, req, pRespCopy, cacheP);
-                    });
-               }
-          }
-
-          //Attach SWGT Siege Log History Data
-          if (config.Config.Plugins[pluginName].enabled) {
-               for (var commandIndex in swgtPersonalListenToSWGTHistoryCommands) {
-                    var command = swgtPersonalListenToSWGTHistoryCommands[commandIndex];
-                    proxy.on(command, (req, resp) => {
-                         var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
-                         this.processSWGTHistoryRequest(command, proxy, config, req, pRespCopy, cacheP);
-                    });
-               }
-          }
 
           //Confirm SWGT plugin version and Site API Settings
           this.checkVersion(proxy, config);
@@ -253,7 +310,6 @@ module.exports = {
           return true;
      },
      hasAPISettings(config, proxy) {
-
           if (localAPIkey != config.Config.Plugins[pluginName].apiKey) {
                this.checkSiteAPI(proxy, config);
                localAPIkey = config.Config.Plugins[pluginName].apiKey;
@@ -275,6 +331,8 @@ module.exports = {
           return false;
      },
      processRequest(command, proxy, config, req, resp, cacheP) {
+          let lowerCaseCommand = command.toLowerCase();
+
           if (!config.Config.Plugins[pluginName].sendCharacterJSON){
                //proxy.log({ type: 'DEBUG', source: 'plugin', name: this.pluginName, message: 'sendCharacterJSON disabled' });
                return;
@@ -285,8 +343,31 @@ module.exports = {
           }
 
           var checkCache = true;
+
+          let isSWGTPersonalPlusCommand = false;
+          for (let commandIndex in swgtPersonalPlusCommands) {
+               let tempCommand = swgtPersonalPlusCommands[commandIndex];
+               if(tempCommand)
+                    tempCommand = tempCommand.toLowerCase();
+
+               if(lowerCaseCommand == tempCommand){
+                    isSWGTPersonalPlusCommand = true;
+                    break;
+               }
+          }
+          let isSwgtPersonalRealTimeEquipRemoveRuneAndArtifactCommand = false;
+          for (let commandIndex in swgtPersonalRealTimeEquipRemoveRuneAndArtifactCommands) {
+               let tempCommand = swgtPersonalRealTimeEquipRemoveRuneAndArtifactCommands[commandIndex];
+               if(tempCommand)
+                    tempCommand = tempCommand.toLowerCase();
+
+               if(lowerCaseCommand == tempCommand){
+                    isSwgtPersonalRealTimeEquipRemoveRuneAndArtifactCommand = true;
+                    break;
+               }
+          }
           
-          if(swgtPersonalPlusCommands.includes(resp['command'])){
+          if(isSWGTPersonalPlusCommand){
                if(apiReference['isSWGTPersonalPlusSubscriber'] == false){
                     //Do Nothing - Not Authorized
                     proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: 
@@ -294,7 +375,7 @@ module.exports = {
                     });
                     return;
                }
-               if(swgtPersonalRealTimeEquipRemoveRuneAndArtifactCommands.includes(resp['command'])){
+               if(isSwgtPersonalRealTimeEquipRemoveRuneAndArtifactCommand){
                     if(config.Config.Plugins[pluginName].realTimeEqiupRemoveRuneArtifact){
                          checkCache = false;
                     }else{
@@ -306,17 +387,17 @@ module.exports = {
                }
           }
 
-          if(resp['command'] == 'getUnitStorageList'){
+          if(lowerCaseCommand == 'getUnitStorageList'.toLowerCase()){
                if('wizard_id' in req)
                     resp.wizard_id = req.wizard_id;
           }
-          if(resp['command'] == 'UpdateArtifactOccupationContents'){
+          if(lowerCaseCommand == 'UpdateArtifactOccupationContents'.toLowerCase()){
                if('content_type' in req)
                     resp.content_type = req.content_type;
                if('wizard_id' in req)
                     resp.wizard_id = req.wizard_id;
           }
-          if (resp['command'] == 'GetServerGuildWarParticipationInfo') {
+          if (lowerCaseCommand== 'GetServerGuildWarParticipationInfo'.toLowerCase()) {
                try {
                     worldGuildBattleGuildRanking.set(resp.ranking_info.guild_id, resp.ranking_info.rating_id);
                } catch (e) {
@@ -330,7 +411,7 @@ module.exports = {
           var pReq = JSON.parse(JSON.stringify(req)); //pruned request object to ensure global object not modified for other plugins
 
           //Clean ConvertArtifactByCraft resp
-          if (pResp['command'] == 'ConvertArtifactByCraft') {
+          if (lowerCaseCommand == 'ConvertArtifactByCraft'.toLowerCase()) {
                if ('wizard_info' in pResp) { delete pResp['wizard_info'] };
                if ('artifact_before' in pResp) { delete pResp['artifact_before'] };
                if ('artifact_after' in pResp) { delete pResp['artifact_after'] };
@@ -338,7 +419,7 @@ module.exports = {
           }
 
           //Clean BattleDungeonResult_V2 or BattleWorldBossResult_v2 resp
-          if (pResp['command'] == 'BattleDungeonResult_V2' || pResp['command'] == 'BattleWorldBossResult_v2') {
+          if (lowerCaseCommand == 'BattleDungeonResult_V2'.toLowerCase() || lowerCaseCommand == 'BattleWorldBossResult_v2'.toLocaleLowerCase()) {
 
                if ('clear_time' in pResp) { delete pResp['clear_time'] };
                if ('unit_list' in pResp) { delete pResp['unit_list'] };
@@ -417,13 +498,13 @@ module.exports = {
           }
 
           var items = 1;
-          if (pResp['command'] == 'HubUserLogin') {
+          if (lowerCaseCommand == 'HubUserLogin'.toLowerCase()) {
                if ('wizard_info' in pResp && 'wizard_id' in pResp.wizard_info)
                     req.wizard_id = pResp.wizard_info.wizard_id;
 
                if (!this.verifyPacketToSend(proxy, config, req, resp)) return;
           }
-          if (pResp['command'] == 'GetServerGuildWarBattleLogByGuild') {
+          if (lowerCaseCommand == 'GetServerGuildWarBattleLogByGuild'.toLowerCase()) {
                items = 0;
                pruned = pResp;
                for (var i in pruned.match_log_list) {
@@ -436,7 +517,7 @@ module.exports = {
                }
                pResp = pruned;
           }
-          if (pResp['command'] == 'GetServerGuildWarBattleLogByWizard') {
+          if (lowerCaseCommand == 'GetServerGuildWarBattleLogByWizard'.toLowerCase()) {
                items = 0;
                pruned = pResp;
                for (var k = pruned.battle_log_list.length - 1; k >= 0; k--) {
@@ -451,7 +532,7 @@ module.exports = {
                pResp = pruned;
           }
 
-          if (pResp['command'] == 'GetGuildSiegeBattleLog' || pResp['command'] == 'GetGuildSiegeBattleLogByWizardId') {
+          if (lowerCaseCommand == 'GetGuildSiegeBattleLog'.toLowerCase() || lowerCaseCommand == 'GetGuildSiegeBattleLogByWizardId'.toLowerCase()) {
                items = 0;
                pruned = pResp;//'log_list' array of sieges into 'battle_log_list' array of battles with 'wizard_id' on each battle--if array is empty don't send packet
                for (var i in pruned.log_list) {
@@ -465,7 +546,7 @@ module.exports = {
                pResp = pruned;
           }
 
-          if (pResp['command'] == 'GetGuildSiegeBaseDefenseUnitList' || pResp['command'] == 'GetGuildSiegeBaseDefenseUnitListPreset') {
+          if (lowerCaseCommand == 'GetGuildSiegeBaseDefenseUnitList'.toLowerCase() || lowerCaseCommand == 'GetGuildSiegeBaseDefenseUnitListPreset'.toLowerCase()) {
                items = 0;
                pruned = pResp;
                //items += pruned.defense_deck_list.length - 1;
@@ -479,7 +560,7 @@ module.exports = {
                pResp = pruned;
           }
 
-          if (pResp['command'] == 'GetGuildMazeContributeList') {
+          if (lowerCaseCommand == 'GetGuildMazeContributeList'.toLowerCase()) {
                items = 0;
                pruned = pResp;
 
@@ -492,7 +573,7 @@ module.exports = {
                pResp = pruned;
           }
 
-          if (pResp['command'] == 'GetGuildMazeBattleLogByWizard' || pResp['command'] == 'GetGuildMazeBattleLogByTile') {
+          if (lowerCaseCommand == 'GetGuildMazeBattleLogByWizard'.toLowerCase() || lowerCaseCommand == 'GetGuildMazeBattleLogByTile'.toLowerCase()) {
                items = 0;
                var elementsToPrune = [
                     'log_list'  //array of maze battles 'wizard_id' on each battle---
@@ -509,7 +590,7 @@ module.exports = {
                items += pruned.log_list.length;
                pResp = pruned;
           }
-          if (pResp['command'] == 'GetServerGuildWarContributeList') {
+          if (lowerCaseCommand == 'GetServerGuildWarContributeList'.toLowerCase()) {
                items = 0;
                pruned = pResp;
 
@@ -522,7 +603,7 @@ module.exports = {
                pResp = pruned;
           }
 
-          if (pResp['command'] == 'GetServerGuildWarBattleLogByGuild') {
+          if (lowerCaseCommand == 'GetServerGuildWarBattleLogByGuild'.toLowerCase()) {
                items = 0;
                pruned = pResp;
                for (var i in pruned.match_log_list) {
@@ -536,7 +617,7 @@ module.exports = {
                pResp = pruned;
           }
 
-          if (pResp['command'] == 'GetServerGuildWarBattleLogByWizard') {
+          if (lowerCaseCommand == 'GetServerGuildWarBattleLogByWizard'.toLowerCase()) {
                items = 0;
                pruned = pResp;
                for (var k = pruned.battle_log_list.length - 1; k >= 0; k--) {
@@ -551,7 +632,7 @@ module.exports = {
                pResp = pruned;
           }
 
-          if (pResp['command'] == 'getGuildBossContributeList') {
+          if (lowerCaseCommand == 'getGuildBossContributeList'.toLowerCase()) {
                items = 0;
                pruned = pResp;
 
@@ -564,7 +645,7 @@ module.exports = {
                pResp = pruned;
           }
 
-          if (pResp['command'] == 'getGuildBossBattleLogByWizard') {
+          if (lowerCaseCommand == 'getGuildBossBattleLogByWizard'.toLowerCase()) {
                items = 0;
                pruned = pResp;
 
@@ -577,7 +658,7 @@ module.exports = {
                pResp = pruned;
           }
 
-          if (resp['command'] == 'UpgradeRune') {
+          if (lowerCaseCommand == 'UpgradeRune'.toLowerCase()) {
                const originalLevel = req.upgrade_curr;
                const newLevel = resp.rune.upgrade_curr;
 
@@ -587,7 +668,7 @@ module.exports = {
           }
 
           //Clean GetServerGuildWarDefenseDeckList resp
-          if (resp['command'] == 'GetServerGuildWarDefenseDeckList') {
+          if (lowerCaseCommand == 'GetServerGuildWarDefenseDeckList'.toLowerCase()) {
                try {
                     for (var root_element_name in resp) {
                          if (root_element_name == "deck_list") {
@@ -652,13 +733,13 @@ module.exports = {
                     }
                } catch (e) { }
           }
-          if (pResp['command'] == 'updateMarker') {
+          if (lowerCaseCommand == 'updateMarker'.toLowerCase()) {
                try {
                     //We need wizard_id from the request object to actually use packet
                     pResp.wizard_id = pReq.wizard_id;
                } catch (e) { }
           }
-          if (pResp['command'] == 'RemoveRuneLock') {
+          if (lowerCaseCommand == 'RemoveRuneLock'.toLowerCase()) {
                try {
                     //We need wizard_id from the request object to actually use packet
                     pResp.wizard_id = pReq.wizard_id;
@@ -682,9 +763,11 @@ module.exports = {
 
      },
      process3MDCRequest(command, proxy, config, req, resp, cacheP) {
+          let lowerCaseCommand = command.toLowerCase();
+
           if (!config.Config.Plugins[pluginName].uploadBattles) return false;
 
-          if (resp['command'] == 'GetServerGuildWarMatchInfo') {
+          if (lowerCaseCommand == 'GetServerGuildWarMatchInfo'.toLowerCase()) {
                //If wizard id and rating doesn't exist in wizardBattles[] then push to it
                try {
                     wizardInfo = {}
@@ -717,7 +800,7 @@ module.exports = {
                          worldGuildBattleGuildRanking.set(resp.server_guildwar_match_info.guild_id, resp.server_guildwar_match_info.match_rating_id);
                } catch (e) { }
           }
-          if (resp['command'] == 'GetGuildSiegeRankingInfo') {
+          if (lowerCaseCommand == 'GetGuildSiegeRankingInfo'.toLowerCase()) {
                //If wizard id and rating doesn't exist in wizardBattles[] then push to it
                try {
                     wizardInfo = {}
@@ -745,7 +828,7 @@ module.exports = {
                     siegeGuildRanking.set(resp.guildsiege_ranking_info.guild_id, resp.guildsiege_ranking_info.rating_id);
                } catch (e) { }
           }
-          if (resp['command'] == 'GetServerGuildWarParticipationInfo') {
+          if (lowerCaseCommand == 'GetServerGuildWarParticipationInfo'.toLowerCase()) {
                try {
                     worldGuildBattleGuildRanking.set(resp.ranking_info.guild_id, resp.ranking_info.rating_id);
                } catch (e) {
@@ -753,7 +836,7 @@ module.exports = {
                }
                return;
           }
-          if (resp['command'] == 'GetGuildSiegeMatchupInfo') {
+          if (lowerCaseCommand == 'GetGuildSiegeMatchupInfo'.toLowerCase()) {
                //If wizard id and rating doesn't exist in wizardBattles[] then push to it
                try {
                     wizardInfo = {}
@@ -795,7 +878,7 @@ module.exports = {
                     proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: `${resp['command']}-${e.message}` });
                }
           }
-          if (resp['command'] == 'BattleServerGuildWarStart' || resp['command'] == 'BattleServerGuildWarStartVirtual') {
+          if (lowerCaseCommand == 'BattleServerGuildWarStart'.toLowerCase() || lowerCaseCommand == 'BattleServerGuildWarStartVirtual'.toLowerCase()) {
                //Store only the information needed for transfer
                try {
                     k = 0;
@@ -857,7 +940,7 @@ module.exports = {
                     proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: `${resp['command']}-${e.message}` });
                }
           }
-          if (resp['command'] == 'BattleGuildSiegeStart_v2') {
+          if (lowerCaseCommand == 'BattleGuildSiegeStart_v2'.toLowerCase()) {
                try {
                     battle = {}
                     battle.command = "3MDCBattleLog";
@@ -897,7 +980,7 @@ module.exports = {
                     proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: `${resp['command']}-${e.message}` });
                }
           }
-          if (resp['command'] == 'BattleServerGuildWarRoundResult') {
+          if (lowerCaseCommand == 'BattleServerGuildWarRoundResult'.toLowerCase()) {
                //store battle start time for second battle and end time for first battle
                var j = req['round_id'] - 1;
                try {//Handle out of order processing
@@ -928,7 +1011,7 @@ module.exports = {
                }
           }
 
-          if (req['command'] == 'BattleServerGuildWarResult' || resp['command'] == 'BattleServerGuildWarResultVirtual') {
+          if (lowerCaseCommand == 'BattleServerGuildWarResult'.toLowerCase() || lowerCaseCommand == 'BattleServerGuildWarResultVirtual'.toLowerCase()) {
                var j = 5;
                try {//Handle out of order processing
                     for (var wizard in wizardBattles) {
@@ -972,7 +1055,7 @@ module.exports = {
                }
           }
 
-          if (req['command'] == 'BattleGuildSiegeResult') {
+          if (lowerCaseCommand == 'BattleGuildSiegeResult'.toLowerCase()) {
                var j = 0;
                try {//Handle out of order processing
                     for (var wizard in wizardBattles) {
@@ -1006,7 +1089,7 @@ module.exports = {
                }
           }
 
-          if (req['command'] == 'SetGuildSiegeBattleReplayData') {
+          if (lowerCaseCommand == 'SetGuildSiegeBattleReplayData'.toLowerCase()) {
                //If wizard id and rating doesn't exist in wizardBattles[] then push to it
                try {
                     wizardInfo = {}
@@ -1084,7 +1167,7 @@ module.exports = {
                }
           }
 
-          if (req['command'] == 'SetServerGuildWarBattleReplayData') {
+          if (lowerCaseCommand == 'SetServerGuildWarBattleReplayData'.toLowerCase()) {
                //If wizard id and rating doesn't exist in wizardBattles[] then push to it
                try {
                     wizardInfo = {}
@@ -1159,8 +1242,10 @@ module.exports = {
 
      },
      processSWGTHistoryRequest(command, proxy, config, req, resp, cacheP) {
+          let lowerCaseCommand = command.toLowerCase();
+
           //Populate the Defense_Deck Table
-          if (resp['command'] == 'GetGuildSiegeBaseDefenseUnitList' || resp['command'] == 'GetGuildSiegeBaseDefenseUnitListPreset' || resp['command'] == 'GetGuildSiegeDefenseDeckByWizardId') {
+          if (lowerCaseCommand == 'GetGuildSiegeBaseDefenseUnitList'.toLowerCase() || lowerCaseCommand == 'GetGuildSiegeBaseDefenseUnitListPreset'.toLowerCase() || lowerCaseCommand == 'GetGuildSiegeDefenseDeckByWizardId'.toLowerCase()) {
                if (!this.verifyPacketToSend(proxy, config, req, resp)) return;
                //If wizard id and rating doesn't exist in wizardBattles[] then push to it
                try {
@@ -1225,7 +1310,7 @@ module.exports = {
 
           //Populate the Defense_Deck Log Matching Table
 
-          if (resp['command'] == 'GetGuildSiegeBattleLogByDeckId') {
+          if (lowerCaseCommand == 'GetGuildSiegeBattleLogByDeckId'.toLowerCase()) {
                //If wizard id and rating doesn't exist in wizardBattles[] then push to it
 
                try {
@@ -1292,44 +1377,44 @@ module.exports = {
      hasCacheMatch(proxy, config, req, resp, cacheP) {
           if (!this.hasAPISettings(config, proxy)) return false;
           var respCopy = JSON.parse(JSON.stringify(resp));
-          var action = respCopy['command'];
+          let lowerCaseCommand = respCopy['command'];
+          if(lowerCaseCommand)
+               lowerCaseCommand = lowerCaseCommand.toLowerCase();
 
           //Remove stuff that is auto generated, time stamp or request related
-          if ('log_type' in respCopy) { action += '_' + respCopy['log_type'] };
+          if ('log_type' in respCopy) { lowerCaseCommand += '_' + respCopy['log_type'] };
           if ('ts_val' in respCopy) { delete respCopy['ts_val'] };
           if ('tvalue' in respCopy) { delete respCopy['tvalue'] };
           if ('tvaluelocal' in respCopy) { delete respCopy['tvaluelocal'] };
           if ('reqid' in respCopy) { delete respCopy['reqid'] };
           if ('date_time_stamp' in respCopy) { delete respCopy['date_time_stamp'] };
 
-          if (!(action in cacheP)) {
-               proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: "Not in cache:  " + action });
+          if ((lowerCaseCommand in cacheP) == false) {
+               proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: "Not in cache:  " + lowerCaseCommand });
           } else {
                var respTest = JSON.stringify(respCopy);
-               var cacheTest = JSON.stringify(cacheP[action]);
-               //this.writeToFile(proxy, req, respCopy,'SWGTPersonal-cacheResp-');
-               //this.writeToFile(proxy, req, cacheP[action],'SWGTPersonal-cacheAction-');
+               var cacheTest = JSON.stringify(cacheP[lowerCaseCommand]);
                if (cacheTest === respTest) {
-                    proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: "Matched cache:  " + action });
+                    proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: "Matched cache:  " + lowerCaseCommand });
                     return true;
                } else {
-                    proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: "No match cache:  " + action });
+                    proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: "No match cache:  " + lowerCaseCommand });
                }
                for (var k in cachePTimerSettings) {
-                    if (cachePTimerSettings[k].command === action) {
+                    if (cachePTimerSettings[k].command === lowerCaseCommand) {
                          var currentTime = new Date().getTime();
-                         var timeDifference = currentTime - cachePDuration[action];
+                         var timeDifference = currentTime - cachePDuration[lowerCaseCommand];
                          if (timeDifference < cachePTimerSettings[k].timer) {
                               timerMinutes = cachePTimerSettings[k].timer / 60000;
-                              proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: "Time between last packet < " + timerMinutes + " minute(s) for:  " + action });
+                              proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: "Time between last packet < " + timerMinutes + " minute(s) for:  " + lowerCaseCommand });
                               return true;
                          }
                     }
                }
           };
 
-          cacheP[action] = respCopy;
-          cachePDuration[action] = new Date().getTime();
+          cacheP[lowerCaseCommand] = respCopy;
+          cachePDuration[lowerCaseCommand] = new Date().getTime();
 
           return false;
      },
@@ -1378,8 +1463,11 @@ module.exports = {
                     //Remove from cache if rate limited
                     try {
                          if (response.body.includes("updated in the past")) {
-                              var action = resp['command'];
-                              delete cacheP[action];
+                              let lowerCaseCommand = resp['command'];
+                              if(lowerCaseCommand)
+                                   lowerCaseCommand = lowerCaseCommand.toLowerCase();
+
+                              delete cacheP[lowerCaseCommand];
                          }
                     } catch (error) { }
                }
