@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 
-const version = '2.2.0';
+const version = '2.3.0';
 const pluginName = 'SWGTPersonalLogger';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
@@ -265,7 +265,7 @@ module.exports = {
                               proxy, 
                               config, 
                               req, 
-                              JSON.parse(JSON.stringify(resp)), //Deep copy
+                              structuredClone(resp), //Deep copy
                               cacheP
                          );
                          break;
@@ -275,18 +275,18 @@ module.exports = {
                               proxy, 
                               config, 
                               req, 
-                              JSON.parse(JSON.stringify(resp)), //Deep copy
+                              structuredClone(resp), //Deep copy
                               cacheP
                          );
                          break;
                     case "SWGT_HISTORY":
-                         var pRespCopy = JSON.parse(JSON.stringify(resp)); //Deep copy
+                         var pRespCopy = structuredClone(resp); //Deep copy
                          this.processSWGTHistoryRequest(
                               command, 
                               proxy, 
                               config, 
                               req, 
-                              JSON.parse(JSON.stringify(resp)), //Deep copy
+                              structuredClone(resp), //Deep copy
                               cacheP
                          );
                          break;
@@ -407,8 +407,8 @@ module.exports = {
           }
 
           //Clone for usage
-          var pResp = JSON.parse(JSON.stringify(resp)); //pruned response object to ensure global object not modified for other plugins
-          var pReq = JSON.parse(JSON.stringify(req)); //pruned request object to ensure global object not modified for other plugins
+          var pResp = structuredClone(resp); //pruned response object to ensure global object not modified for other plugins
+          var pReq = structuredClone(req); //pruned request object to ensure global object not modified for other plugins
 
           //Clean ConvertArtifactByCraft resp
           if (lowerCaseCommand == 'ConvertArtifactByCraft'.toLowerCase()) {
@@ -1376,7 +1376,7 @@ module.exports = {
      },
      hasCacheMatch(proxy, config, req, resp, cacheP) {
           if (!this.hasAPISettings(config, proxy)) return false;
-          var respCopy = JSON.parse(JSON.stringify(resp));
+          var respCopy = structuredClone(resp);
           let lowerCaseCommand = respCopy['command'];
           if(lowerCaseCommand)
                lowerCaseCommand = lowerCaseCommand.toLowerCase();
