@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 
-const version = '2.3.0';
+const version = '2.4.0';
 const pluginName = 'SWGTPersonalLogger';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
@@ -68,6 +68,7 @@ var swgtPersonalListenToSWGTCommands = [
      //Runes and Artifacts
      'BattleDungeonResult_V2',
      'BattleWorldBossResult_v2',
+     'battleScoutResult',
 
      //Rune Upgrades
      'UpgradeRune',
@@ -419,78 +420,60 @@ module.exports = {
           }
 
           //Clean BattleDungeonResult_V2 or BattleWorldBossResult_v2 resp
-          if (lowerCaseCommand == 'BattleDungeonResult_V2'.toLowerCase() || lowerCaseCommand == 'BattleWorldBossResult_v2'.toLocaleLowerCase()) {
+          if (lowerCaseCommand == 'BattleDungeonResult_V2'.toLowerCase() || lowerCaseCommand == 'BattleWorldBossResult_v2'.toLocaleLowerCase() || lowerCaseCommand == 'battleScoutResult'.toLocaleLowerCase()) {
 
                if ('clear_time' in pResp) { delete pResp['clear_time'] };
                if ('unit_list' in pResp) { delete pResp['unit_list'] };
                if ('reward' in pResp) { delete pResp['reward'] };
 
                if ('changed_item_list' in pResp) {
+                    let droppedRunes = [];
+                    let droppedArtifacts = [];
+
                     var changed_item_list_size = pResp.changed_item_list.length;
                     for (var adIndex = 0; adIndex < changed_item_list_size; adIndex++) {
                          itemDrop = pResp.changed_item_list[adIndex];
 
                          if ('view' in itemDrop && 'rune_set_id' in itemDrop.view && (itemDrop.view.rune_set_id * 1) > 0 && 'info' in itemDrop) {
-                              var runeDrop = {};
-                              //Build custom packet to send to SWGT
-                              runeDrop.command = "CustomDungeonRuneDrop";
-                              runeDrop.wizard_id = itemDrop.info.wizard_id
-                              runeDrop.rune = itemDrop.info;
-
-                              if ('ts_val' in pResp)
-                                   runeDrop.ts_val = pResp.ts_val;
-                              if ('tvalue' in pResp)
-                                   runeDrop.tvalue = pResp.tvalue;
-                              if ('tvaluelocal' in pResp)
-                                   runeDrop.tvaluelocal = pResp.tvaluelocal;
-                              if ('tzone' in pResp)
-                                   runeDrop.tzone = pResp.tzone;
-                              if ('reqid' in pResp)
-                                   runeDrop.reqid = pResp.reqid;
-                              if ('server_id' in pResp)
-                                   runeDrop.server_id = pResp.server_id;
-                              if ('server_endpoint' in pResp)
-                                   runeDrop.server_endpoint = pResp.server_endpoint;
-                              if ('swex_version' in pResp)
-                                   runeDrop.swex_version = pResp.swex_version;
-
-                              //Send rune drop to server
-                              this.writeToFile(proxy, req, runeDrop, `SWGT-${runeDrop.command}-`);
-                              if (this.verifyPacketToSend(proxy, config, req, runeDrop)) {
-                                   this.uploadToWebService(proxy, config, req, runeDrop, 'SWGT');
-                              }
+                              droppedRunes.push(itemDrop.info);
                               continue;
                          }
                          if ('view' in itemDrop && 'artifact_type' in itemDrop.view && (itemDrop.view.artifact_type * 1) > 0 && 'info' in itemDrop) {
-                              var artifactDrop = {};
-                              //Build custom packet to send to SWGT
-                              artifactDrop.command = "CustomDungeonArtifactDrop";
-                              artifactDrop.wizard_id = itemDrop.info.wizard_id
-                              artifactDrop.artifact = itemDrop.info;
-
-                              if ('ts_val' in pResp)
-                                   artifactDrop.ts_val = pResp.ts_val;
-                              if ('tvalue' in pResp)
-                                   artifactDrop.tvalue = pResp.tvalue;
-                              if ('tvaluelocal' in pResp)
-                                   artifactDrop.tvaluelocal = pResp.tvaluelocal;
-                              if ('tzone' in pResp)
-                                   artifactDrop.tzone = pResp.tzone;
-                              if ('reqid' in pResp)
-                                   artifactDrop.reqid = pResp.reqid;
-                              if ('server_id' in pResp)
-                                   artifactDrop.server_id = pResp.server_id;
-                              if ('server_endpoint' in pResp)
-                                   artifactDrop.server_endpoint = pResp.server_endpoint;
-                              if ('swex_version' in pResp)
-                                   artifactDrop.swex_version = pResp.swex_version;
-
-                              //Send artifact drop to server
-                              this.writeToFile(proxy, req, artifactDrop, `SWGT-${artifactDrop.command}-`);
-                              if (this.verifyPacketToSend(proxy, config, req, artifactDrop)) {
-                                   this.uploadToWebService(proxy, config, req, artifactDrop, 'SWGT');
-                              }
+                              droppedArtifacts.push(itemDrop.info);
                               continue;
+                         }
+                    }
+
+                    //Upload to SWGT server if there is stuff to send
+                    if(droppedRunes.length > 0 || droppedArtifacts.length > 0){
+                         var customDungeonDropsPacket = {};
+
+                         //Build custom packet to send to SWGT
+                         customDungeonDropsPacket.command = "CustomDungeonDrops";
+                         customDungeonDropsPacket.runes = droppedRunes;
+                         customDungeonDropsPacket.artifacts = droppedArtifacts;
+
+                         if ('ts_val' in pResp)
+                              customDungeonDropsPacket.ts_val = pResp.ts_val;
+                         if ('tvalue' in pResp)
+                              customDungeonDropsPacket.tvalue = pResp.tvalue;
+                         if ('tvaluelocal' in pResp)
+                              customDungeonDropsPacket.tvaluelocal = pResp.tvaluelocal;
+                         if ('tzone' in pResp)
+                              customDungeonDropsPacket.tzone = pResp.tzone;
+                         if ('reqid' in pResp)
+                              customDungeonDropsPacket.reqid = pResp.reqid;
+                         if ('server_id' in pResp)
+                              customDungeonDropsPacket.server_id = pResp.server_id;
+                         if ('server_endpoint' in pResp)
+                              customDungeonDropsPacket.server_endpoint = pResp.server_endpoint;
+                         if ('swex_version' in pResp)
+                              customDungeonDropsPacket.swex_version = pResp.swex_version;
+
+                         //Send rune drop to server
+                         this.writeToFile(proxy, req, customDungeonDropsPacket, `SWGT-${customDungeonDropsPacket.command}-`);
+                         if (this.verifyPacketToSend(proxy, config, req, customDungeonDropsPacket)) {
+                              this.uploadToWebService(proxy, config, req, customDungeonDropsPacket, 'SWGT');
                          }
                     }
                }
