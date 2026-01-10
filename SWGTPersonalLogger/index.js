@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 
-const version = '2.4.0';
+const version = '2.5.0';
 const pluginName = 'SWGTPersonalLogger';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
@@ -132,7 +132,11 @@ var swgtPersonalPlusCommands = [
      //Equip Runes/Artifacts RTA
      'updateRuneEquip','UpdateRuneEquip',
      'removeRuneEquip',
-     'UpdateArtifactOccupationContents'
+     'UpdateArtifactOccupationContents',
+
+     //Battle Replays for notes
+     'getBattleReplayList','GetBattleReplayList',
+     'getBattleReplayInfo','GetBattleReplayInfo',
 ];
 
 var swgtPersonalRealTimeEquipRemoveRuneAndArtifactCommands = [
@@ -728,6 +732,40 @@ module.exports = {
                     pResp.wizard_id = pReq.wizard_id;
                } catch (e) { }
           }
+          if(lowerCaseCommand == 'getBattleReplayList'.toLowerCase()){
+               if ('type' in req && req['type'] == 2) {
+                    //Allow (Siege)
+
+                    //Clean out all non needed data
+                    try {
+                         resp.replay_list = resp.replay_list.filter(item => 
+                              typeof item.battle_info?.desc === 'string' &&
+                              item.battle_info?.desc?.trim() !== '' && 
+                              apiReference.enabledWizards.includes(item.battle_info?.wizard_id)
+                         );
+                    } catch (e) { }
+               } else {
+                    return; //Skip
+               }
+          }
+          if(lowerCaseCommand == 'getBattleReplayInfo'.toLowerCase()){
+               try {
+                    let replay_info = resp.replay_info;
+
+                    if (
+                         typeof replay_info.battle_info?.desc === 'string' &&
+                         apiReference.enabledWizards.includes(replay_info?.battle_info?.wizard_id) &&
+                         replay_info?.battle_info?.desc?.trim() !== ''
+                    ) {
+                         //Allow
+                    } else {
+                         return; //Skip
+                    }
+               } catch (e) { 
+                    return; //Skip
+               }
+          }
+
 
           this.writeToFile(proxy, req, pResp, 'SWGT');
           proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: "Items:" + `${items}` + "-" + `${resp['command']}` });
