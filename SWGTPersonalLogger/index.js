@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 
-const version = '2.5.0';
+const version = '2.6.0';
 const pluginName = 'SWGTPersonalLogger';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
@@ -89,7 +89,12 @@ var swgtPersonalListenToSWGTCommands = [
      'ConfirmArtifactConversion',
      'ConvertArtifactByCraft',
      'SellArtifacts',
-     'RepurchaseArtifact'
+     'RepurchaseArtifact',
+
+     //Relics
+     'upgradeRelic',
+     'sellRelicList',
+     'repurchaseRelic'
 ];
 
 var swgtPersonalListenTo3MDCCommands = [
@@ -133,6 +138,8 @@ var swgtPersonalPlusCommands = [
      'updateRuneEquip','UpdateRuneEquip',
      'removeRuneEquip',
      'UpdateArtifactOccupationContents',
+     //Equip Relics
+     'updateRelicOccupation',
 
      //Battle Replays for notes
      'getBattleReplayList','GetBattleReplayList',
@@ -720,6 +727,23 @@ module.exports = {
                     }
                } catch (e) { }
           }
+          if(lowerCaseCommand == 'sellRelicList'.toLowerCase()){
+               if('wizard_id' in req)
+                    resp.wizard_id = req.wizard_id;
+          }
+          if(lowerCaseCommand == 'repurchaseRelic'.toLowerCase()){
+               if('wizard_id' in req)
+                    resp.wizard_id = req.wizard_id;
+          }
+          if(lowerCaseCommand == 'updateRelicOccupation'.toLowerCase()){
+               if('wizard_id' in req)
+                    resp.wizard_id = req.wizard_id;
+               if('update_list' in req)
+                    resp.update_list = req.update_list;
+               delete resp.wizard_info; //Remove wizard info to save space since we have wizard id and occupation info in update_list
+               delete resp.updated_unit_list; //Remove updated unit list to save space since we have occupation info in update_list
+          }
+
           if (lowerCaseCommand == 'updateMarker'.toLowerCase()) {
                try {
                     //We need wizard_id from the request object to actually use packet
