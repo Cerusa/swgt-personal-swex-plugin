@@ -69,6 +69,10 @@ var swgtPersonalListenToSWGTCommands = [
      'BattleDungeonResult_V2',
      'BattleWorldBossResult_v2',
      'battleScoutResult',
+     'BattleDimensionHoleDungeonResult_v2',
+
+     //Receive something in an in-game mail
+     'ReceiveMail',
 
      //Rune Upgrades
      'UpgradeRune',
@@ -430,8 +434,8 @@ module.exports = {
                if ('artifact_craft' in pResp) { delete pResp['artifact_craft'] };
           }
 
-          //Clean BattleDungeonResult_V2 or BattleWorldBossResult_v2 resp
-          if (lowerCaseCommand == 'BattleDungeonResult_V2'.toLowerCase() || lowerCaseCommand == 'BattleWorldBossResult_v2'.toLocaleLowerCase() || lowerCaseCommand == 'battleScoutResult'.toLocaleLowerCase()) {
+          //Clean Dungeon Drops
+          if (lowerCaseCommand == 'BattleDungeonResult_V2'.toLowerCase() || lowerCaseCommand == 'BattleWorldBossResult_v2'.toLocaleLowerCase() || lowerCaseCommand == 'battleScoutResult'.toLocaleLowerCase() || lowerCaseCommand == 'BattleDimensionHoleDungeonResult_v2'.toLocaleLowerCase()) {
 
                if ('clear_time' in pResp) { delete pResp['clear_time'] };
                if ('unit_list' in pResp) { delete pResp['unit_list'] };
@@ -787,6 +791,22 @@ module.exports = {
                     }
                } catch (e) { 
                     return; //Skip
+               }
+          }
+          if(lowerCaseCommand == 'ReceiveMail'.toLowerCase()){
+               try {
+                    if (
+                         resp &&
+                         resp.wizard_info &&
+                         Array.isArray(resp.relics) &&
+                         resp.relics.length > 0
+                    ) {
+                         // Allow
+                    } else {
+                         return; // Skip
+                    }
+               } catch (e) {
+                    return; // Skip
                }
           }
 
