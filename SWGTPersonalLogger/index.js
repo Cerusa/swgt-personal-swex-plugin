@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 
-const version = '2.6.0';
+const version = '2.7.0';
 const pluginName = 'SWGTPersonalLogger';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
