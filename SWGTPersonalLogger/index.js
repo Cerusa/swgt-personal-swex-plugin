@@ -2,7 +2,7 @@ const request = require('request');
 const fs = require('fs');
 const path = require('path');
 
-const version = '2.7.0';
+const version = '2.8.0';
 const pluginName = 'SWGTPersonalLogger';
 const siteURL = 'https://swgt.io';
 var wizardBattles = [];
@@ -53,7 +53,7 @@ var swgtPersonalListenToSWGTCommands = [
      'GetServerGuildWarBattleLogByWizard',
      'GetServerGuildWarDefenseDeckList',
      'GetServerGuildWarParticipationInfo',//rating_id
-     //'GetServerGuildWarBaseDeckList',
+     'GetServerGuildWarBaseDeckList',
      //'GetServerGuildWarBaseInfoListForOppView',
      //'GetServerGuildWarContributeList',
 
@@ -346,12 +346,78 @@ module.exports = {
           }
           return false;
      },
+     /* =========================================================
+        Live Battle Companion - Compact Capture
+        ========================================================= */
+     createLiveBattleCompanionPayload(command, req, resp) {
+          const wizardID = Number(req && req.wizard_id);
+          if (Number.isSafeInteger(wizardID) == false || wizardID <= 0) return null;
+          const cmd = String(command).toLowerCase();
+          const payload = { command: 'SWGTLiveBattleCompanion', sourceCommand: command, wizard_id: wizardID };
+          if (cmd == 'getguildsiegebasedefenseunitlist' || cmd == 'getguildsiegebasedefenseunitlistpreset') {
+               payload.wizard_info_list = (resp.wizard_info_list || []).map(w => ({ wizard_id: w.wizard_id, wizard_name: w.wizard_name, guild_id: w.guild_id }));
+               payload.defense_deck_list = (resp.defense_deck_list || []).map(d => ({ deck_id: d.deck_id, wizard_id: d.wizard_id }));
+               payload.defense_unit_list = (resp.defense_unit_list || []).map(u => ({ deck_id: u.deck_id, pos_id: u.pos_id, unit_info: { unit_id: u.unit_info && u.unit_info.unit_id, unit_master_id: u.unit_info && u.unit_info.unit_master_id } }));
+               payload.defense_deck_assign_list = (resp.defense_deck_assign_list || []).map(a => ({ base_number: a.base_number, deck_id: a.deck_id }));
+               payload.defense_deck_status_list = (resp.defense_deck_status_list || []).map(s => ({ siege_id: s.siege_id, match_id: s.match_id, base_number: s.base_number, defense_guild_id: s.defense_guild_id }));
+               if (payload.defense_deck_status_list.length == 0 && req.base_number != null) payload.defense_deck_assign_list.unshift({ base_number: req.base_number });
+          } else {
+               payload.base_info = resp.base_info ? {
+                    server_id: resp.base_info.server_id, guild_id: resp.base_info.guild_id,
+                    wizard_id: resp.base_info.wizard_id, wizard_name: resp.base_info.wizard_name,
+                    match_id: resp.base_info.match_id, base_id: resp.base_info.base_id
+               } : {};
+               payload.deck_list = (resp.deck_list || []).map(d => ({
+                    deck_id: d.deck_id, round: d.round, wizard_id: d.wizard_id,
+                    guild_id: d.guild_id, server_id: d.server_id, unit_id_list: d.unit_id_list
+               }));
+               payload.round_unit_list = (resp.round_unit_list || []).map(round =>
+                    (Array.isArray(round) ? round : []).map(u => ({
+                         pos_id: u.pos_id, unit_info: {
+                              unit_id: u.unit_info && u.unit_info.unit_id,
+                              unit_master_id: u.unit_info && u.unit_info.unit_master_id
+                         }
+                    })));
+               if (payload.base_info.wizard_id == null && payload.deck_list.length > 0) {
+                    payload.base_info.wizard_id = resp.target_wizard_id || payload.deck_list[0].wizard_id;
+                    payload.base_info.guild_id = payload.deck_list[0].guild_id;
+                    payload.base_info.server_id = payload.deck_list[0].server_id;
+               }
+               if (req.base_id != null && payload.base_info.base_id == null) payload.base_info.base_id = req.base_id;
+          }
+          return payload;
+     },
      processRequest(command, proxy, config, req, resp, cacheP) {
           let lowerCaseCommand = command.toLowerCase();
 
           if (!config.Config.Plugins[pluginName].sendCharacterJSON){
                //proxy.log({ type: 'DEBUG', source: 'plugin', name: this.pluginName, message: 'sendCharacterJSON disabled' });
                return;
+          }
+          // Live captures are separate from historical packet pruning and duplicate suppression.
+          // Always use the requesting account, never an opponent wizard from the response.
+          const isLiveBattleCompanionCapture = [
+               'getguildsiegebasedefenseunitlist',
+               'getguildsiegebasedefenseunitlistpreset',
+               'getserverguildwarbasedecklist',
+               'getserverguildwardefensedecklist'
+          ].includes(lowerCaseCommand);
+          if (isLiveBattleCompanionCapture) {
+               const requestingWizardID = Number(req && req.wizard_id);
+               const enabledForCapture = Number.isSafeInteger(requestingWizardID) && requestingWizardID > 0 &&
+                    Array.isArray(apiReference.enabledWizards) &&
+                    apiReference.enabledWizards.some(wizardID => Number(wizardID) === requestingWizardID);
+               if (enabledForCapture == false) {
+                    proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName,
+                         message: 'Skipping ' + command + ': requesting wizard is not enabled for SWGT Personal' });
+                    return;
+               }
+               const capture = this.createLiveBattleCompanionPayload(command, req, resp);
+               if (capture != null &&
+                    ((Array.isArray(capture.defense_deck_list) && capture.defense_deck_list.length > 0) ||
+                     (Array.isArray(capture.deck_list) && capture.deck_list.length > 0))) {
+                    this.uploadToWebService(proxy, config, req, capture, 'LBC');
+               }
           }
           if (!this.verifyPacketToSend(proxy, config, req, resp)){
                //proxy.log({ type: 'DEBUG', source: 'plugin', name: this.pluginName, message: 'verifyPacketToSend failed' });
@@ -1422,22 +1488,15 @@ module.exports = {
      },
 
      verifyPacketToSend(proxy, config, req, resp) {
-          verifyCheck = true;
-          if ('wizard_id' in req) {
-               var i = apiReference.enabledWizards.length;
-               while (i--) {
-                    if (apiReference.enabledWizards[i] === req.wizard_id) {
-                         verifyCheck = true;
-                         i = 0;
-                    } else {
-                         verifyCheck = false;
-                    }
-               }
-          } else {
-               verifyCheck = true;
-          }
-          proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName, message: "Verify User: " + `${verifyCheck}` + "-" + `${resp['command']}` });
-          return verifyCheck;
+          // Commands without a requesting wizard retain their existing behavior.
+          if (req == null || req.wizard_id == null) return true;
+          const wizardID = Number(req.wizard_id);
+          const authorized = Number.isSafeInteger(wizardID) && wizardID > 0 &&
+               Array.isArray(apiReference.enabledWizards) &&
+               apiReference.enabledWizards.some(enabledWizardID => Number(enabledWizardID) === wizardID);
+          proxy.log({ type: 'debug', source: 'plugin', name: this.pluginName,
+               message: 'Verify User: ' + authorized + '-' + (resp?.command || '') });
+          return authorized;
      },
      hasCacheMatch(proxy, config, req, resp, cacheP) {
           if (!this.hasAPISettings(config, proxy)) return false;
@@ -1448,6 +1507,12 @@ module.exports = {
 
           //Remove stuff that is auto generated, time stamp or request related
           if ('log_type' in respCopy) { lowerCaseCommand += '_' + respCopy['log_type'] };
+          if (['getguildsiegebasedefenseunitlist', 'getguildsiegebasedefenseunitlistpreset',
+               'getserverguildwarbasedecklist', 'getserverguildwardefensedecklist'].includes(lowerCaseCommand) &&
+               req && req.wizard_id != null) {
+               lowerCaseCommand += '_wizard_' + String(req.wizard_id);
+          }
+
           if ('ts_val' in respCopy) { delete respCopy['ts_val'] };
           if ('tvalue' in respCopy) { delete respCopy['tvalue'] };
           if ('tvaluelocal' in respCopy) { delete respCopy['tvaluelocal'] };
@@ -1501,6 +1566,8 @@ module.exports = {
           var endpoint = "/api/personal/swgt/v1";
           if ("3MDC" == endpointType) {
                endpoint = "/api/personal/3mdc/v1";
+          } else if ("LBC" == endpointType) {
+               endpoint = "/api/personal/swgt/v1";
           }
           let options = {
                method: 'post',
